@@ -44,6 +44,22 @@ body {
   .ui-link {
     @apply text-sky-300 underline underline-offset-2 hover:text-sky-200;
   }
+
+  .hero-frame {
+    @apply overflow-hidden rounded-3xl border border-sky-400/20 bg-slate-950/70;
+    box-shadow:
+      0 0 0 1px rgba(125, 211, 252, 0.08) inset,
+      0 24px 60px rgba(2, 132, 199, 0.12);
+  }
+
+  .hero-image {
+    @apply block h-auto w-full object-cover transition duration-500;
+    filter: saturate(1.02) contrast(1.02);
+  }
+
+  .hero-frame:hover .hero-image {
+    transform: scale(1.015);
+  }
 }
 
 @layer utilities {
@@ -60,6 +76,12 @@ body {
     box-shadow: 0 0 0 1px rgba(56, 189, 248, 0.18) inset, 0 18px 48px rgba(2, 132, 199, 0.18);
     transform: translateY(-1px);
   }
+  .animate-float-soft {
+    animation: floatSoft 5.8s ease-in-out infinite;
+  }
+  .animate-pulse-glow {
+    animation: pulseGlow 3.8s ease-in-out infinite;
+  }
 }
 
 @keyframes fadeUp {
@@ -70,4 +92,14 @@ body {
 @keyframes fadeIn {
   from { opacity: 0; }
   to { opacity: 1; }
+}
+
+@keyframes floatSoft {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+
+@keyframes pulseGlow {
+  0%, 100% { box-shadow: 0 0 0 1px rgba(56, 189, 248, 0.16) inset, 0 18px 48px rgba(2, 132, 199, 0.12); }
+  50% { box-shadow: 0 0 0 1px rgba(125, 211, 252, 0.28) inset, 0 20px 58px rgba(14, 165, 233, 0.18); }
 }

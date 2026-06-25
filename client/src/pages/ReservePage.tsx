@@ -2,6 +2,8 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { createTicket } from '../lib/api'
 
+const HERO_IMAGE = 'https://i.ibb.co/wrRqcfzj/Kakao-Talk-20260625-115249931.jpg'
+
 export default function ReservePage() {
   const nav = useNavigate()
 
@@ -28,10 +30,19 @@ export default function ReservePage() {
 
   return (
     <div className="mx-auto max-w-md px-5 py-10 animate-fade-up">
+      <div className="hero-frame animate-pulse-glow mb-6">
+        <img
+          src={HERO_IMAGE}
+          alt="Summer Splash 메인 비주얼"
+          className="hero-image max-h-[220px] w-full object-cover object-center"
+          loading="eager"
+        />
+      </div>
+
       <h1 className="text-3xl font-extrabold tracking-tight text-sky-300">Summer Splash!</h1>
       <p className="mt-2 text-sm text-zinc-400">사전 예매 후 예매 번호로 빠른 입장을 도와드립니다.</p>
 
-      <form onSubmit={onSubmit} className="mt-8 space-y-4">
+      <form onSubmit={onSubmit} className="ui-card mt-8 space-y-4 p-5 hover-glow">
         <div>
           <label className="text-sm text-zinc-300">예약자명</label>
           <input

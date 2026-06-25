@@ -1,8 +1,19 @@
 import type { Ticket } from '../lib/types'
 
+const HERO_IMAGE = 'https://i.ibb.co/wrRqcfzj/Kakao-Talk-20260625-115249931.jpg'
+
 export default function TicketCard({ ticket }: { ticket: Ticket }) {
   return (
-    <div className="ui-card hover-glow mx-auto w-full max-w-sm border-sky-400/35 p-5 ring-2 ring-sky-500/35">
+    <div className="ui-card hover-glow animate-float-soft mx-auto w-full max-w-sm border-sky-400/35 p-5 ring-2 ring-sky-500/35">
+      <div className="hero-frame mb-4">
+        <img
+          src={HERO_IMAGE}
+          alt="Summer Splash 비주얼"
+          className="hero-image max-h-[120px] w-full object-cover object-center"
+          loading="eager"
+        />
+      </div>
+
       <div className="flex items-center justify-between gap-3">
         <div className="text-lg font-extrabold tracking-widest text-sky-300">Summer Splash!</div>
         <div className="rounded-full border border-zinc-800 bg-zinc-900 px-2 py-1 text-xs text-zinc-300">
