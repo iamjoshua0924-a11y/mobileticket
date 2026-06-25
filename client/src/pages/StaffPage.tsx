@@ -58,6 +58,7 @@ export default function StaffPage() {
   const [error, setError] = useState<string | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [restoreId, setRestoreId] = useState<string | null>(null)
+  const [restorePreview, setRestorePreview] = useState<DeletedLog | null>(null)
   const [onsiteOpen, setOnsiteOpen] = useState(false)
   const [onsiteForm, setOnsiteForm] = useState({ name: '', headcount: 1 })
   const [settlement, setSettlement] = useState<{ totalHeadcount: number; revenue: number } | null>(null)
@@ -204,6 +205,28 @@ export default function StaffPage() {
     }
   }
 
+  async function onDownloadCsv() {
+    if (!staffSecret) return
+    setError(null)
+    try {
+      const res = await fetch('/api/tickets/export.csv', {
+        headers: { 'x-staff-secret': staffSecret }
+      })
+      if (!res.ok) throw new Error('CSV 다운로드 실패')
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = 'midsummer-splash.csv'
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      URL.revokeObjectURL(url)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'CSV 다운로드 실패')
+    }
+  }
+
   async function onCreateOnsite(e: React.FormEvent) {
     e.preventDefault()
     if (!staffSecret) return
@@ -259,6 +282,7 @@ export default function StaffPage() {
         <button className={tab === 'deleted' ? 'ui-btn-primary px-3 py-2 text-xs' : 'ui-btn-ghost px-3 py-2 text-xs'} onClick={() => setTab('deleted')}>삭제로그</button>
         <button className={tab === 'refunds' ? 'ui-btn-primary px-3 py-2 text-xs' : 'ui-btn-ghost px-3 py-2 text-xs'} onClick={() => setTab('refunds')}>환불내역</button>
         <button className="ui-btn-ghost px-3 py-2 text-xs" onClick={() => setOnsiteOpen((v) => !v)}>현장예매 입력</button>
+        <button className="ui-btn-ghost px-3 py-2 text-xs" onClick={() => void onDownloadCsv()}>CSV 다운로드</button>
         <button className="ui-btn-ghost px-3 py-2 text-xs" onClick={() => void onSettlement()}>정산하기</button>
         <button className="ui-btn-primary px-3 py-2 text-xs" onClick={() => void refresh()}>{loading ? '불러오는 중…' : '새로고침'}</button>
       </div>
@@ -360,8 +384,8 @@ export default function StaffPage() {
                   <div className="mt-1 text-xs text-zinc-400">{log.ticket.bookingNo} · {fmt(log.deletedAt)}</div>
                   <div className="mt-1 text-xs text-zinc-500">{log.ticket.headcount}명 / {log.ticket.depositorName}</div>
                 </div>
-                <button className="ui-btn-primary px-3 py-2 text-xs" disabled={restoreId === log._id} onClick={() => void onRestore(log._id)}>
-                  {restoreId === log._id ? '복구 중…' : '복구'}
+                <button className="ui-btn-primary px-3 py-2 text-xs" onClick={() => setRestorePreview(log)}>
+                  복구
                 </button>
               </div>
             </div>
@@ -381,17 +405,52 @@ export default function StaffPage() {
                     {t.refundRequest?.accountHolder} / {t.refundRequest?.bankName} / {t.refundRequest?.accountNumber}
                   </div>
                   <div className="mt-1 text-xs text-zinc-500">
-                    상태: {t.refundRequest?.status} / 신청: {fmt(t.refundRequest?.requestedAt)}
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="rounded-full border border-sky-500/15 bg-sky-500/10 px-2 py-1 text-xs text-sky-100">
+                        상태: {t.refundRequest?.status}
+                      </span>
+                      <span className="text-xs text-zinc-500">신청: {fmt(t.refundRequest?.requestedAt)}</span>
+                    </div>
                   </div>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   <button className="ui-btn-ghost px-3 py-2 text-xs" onClick={() => void onRefundStatus(t._id, 'processing')}>처리중</button>
                   <button className="ui-btn-primary px-3 py-2 text-xs" onClick={() => void onRefundStatus(t._id, 'completed')}>환불완료</button>
-                  <button className="ui-btn-ghost px-3 py-2 text-xs" onClick={() => void onRefundStatus(t._id, 'rejected')}>반려</button>
+                  <button className="ui-btn-ghost border-rose-500/20 bg-rose-500/10 px-3 py-2 text-xs text-rose-200 hover:bg-rose-500/15" onClick={() => void onRefundStatus(t._id, 'rejected')}>반려</button>
                 </div>
               </div>
             </div>
           ))}
+        </div>
+      ) : null}
+
+      {restorePreview ? (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-black/60 p-5">
+          <div className="ui-card w-full max-w-lg p-5">
+            <div className="text-sm font-semibold text-zinc-50">삭제 로그 복구 미리보기</div>
+            <div className="mt-3 space-y-2 text-sm text-zinc-200">
+              <div className="rounded-xl border border-sky-500/10 bg-slate-950/40 p-3">
+                <div className="font-semibold">{restorePreview.ticket.name}</div>
+                <div className="mt-1 text-xs text-zinc-400">{restorePreview.ticket.bookingNo}</div>
+                <div className="mt-1 text-xs text-zinc-500">
+                  {restorePreview.ticket.headcount}명 · {restorePreview.ticket.depositorName} · 삭제시각 {fmt(restorePreview.deletedAt)}
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-4 flex gap-2">
+              <button
+                className="ui-btn-primary flex-1"
+                disabled={restoreId === restorePreview._id}
+                onClick={() => void onRestore(restorePreview._id)}
+              >
+                {restoreId === restorePreview._id ? '복구 중…' : '복구 실행'}
+              </button>
+              <button className="ui-btn-ghost" onClick={() => setRestorePreview(null)}>
+                닫기
+              </button>
+            </div>
+          </div>
         </div>
       ) : null}
     </div>

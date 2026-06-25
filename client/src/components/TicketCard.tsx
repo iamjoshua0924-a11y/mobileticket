@@ -3,22 +3,31 @@ import type { Ticket } from '../lib/types'
 const HERO_IMAGE = 'https://i.ibb.co/wZyLCS57/20260625-142223.png'
 
 export default function TicketCard({ ticket }: { ticket: Ticket }) {
+  const paid = Boolean(ticket.isPaid)
   return (
-    <div className="ticket-print-in ui-card hover-glow ticket-card-shell mx-auto w-full max-w-sm overflow-hidden border-sky-400/35 p-5 ring-2 ring-sky-500/35">
+    <div
+      className={[
+        'ticket-print-in ui-card hover-glow ticket-card-shell mx-auto w-full max-w-sm overflow-hidden border-sky-400/35 p-5 ring-2',
+        paid ? 'ring-sky-300/70' : 'ring-sky-500/35'
+      ].join(' ')}
+    >
       <div className="ticket-print-sheen" />
       <div className="hero-frame mb-4">
         <img
           src={HERO_IMAGE}
-          alt="Summer Splash 비주얼"
+          alt="Midsummer Splash 비주얼"
           className="hero-image max-h-[180px] w-full object-contain bg-slate-950/70 p-2"
           loading="eager"
         />
       </div>
 
       <div className="flex items-center justify-between gap-3">
-        <div className="text-lg font-extrabold tracking-widest text-sky-300">Summer Splash!</div>
-        <div className="rounded-full border border-zinc-800 bg-zinc-900 px-2 py-1 text-xs text-zinc-300">
-          {ticket.headcount}명
+        <div className="text-lg font-extrabold tracking-widest text-sky-300">Midsummer Splash!</div>
+        <div className="flex items-center gap-2">
+          {paid ? (
+            <div className="rounded-full bg-sky-500/15 px-2 py-1 text-xs font-semibold text-sky-200">입금 완료</div>
+          ) : null}
+          <div className="rounded-full border border-zinc-800 bg-zinc-900 px-2 py-1 text-xs text-zinc-300">{ticket.headcount}명</div>
         </div>
       </div>
 
