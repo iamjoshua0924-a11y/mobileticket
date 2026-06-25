@@ -149,6 +149,9 @@ router.post('/onsite', staffAuth, async (req, res) => {
     source: 'onsite',
     isPaid: true,
     paidAt: new Date()
+    ,
+    isCheckedIn: true,
+    checkedInAt: new Date()
   });
 
   pushHistory(ticket, 'created', '현장예매 입력');

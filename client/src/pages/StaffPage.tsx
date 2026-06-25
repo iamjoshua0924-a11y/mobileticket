@@ -151,6 +151,15 @@ export default function StaffPage() {
 
   const refundTickets = useMemo(() => tickets.filter((t) => t.refundRequest), [tickets])
 
+  function refundBadge(t: Ticket) {
+    const status = t.refundRequest?.status
+    if (!status) return null
+    if (status === 'completed') return { text: '환불됨', cls: 'bg-rose-500/15 text-rose-200' }
+    if (status === 'processing') return { text: '환불처리중', cls: 'bg-amber-500/15 text-amber-200' }
+    if (status === 'rejected') return { text: '환불반려', cls: 'bg-zinc-700/30 text-zinc-200' }
+    return { text: '환불요청', cls: 'bg-sky-500/15 text-sky-200' }
+  }
+
   function removeTicketLocal(ticketId: string) {
     setTickets((prev) => prev.filter((t) => t._id !== ticketId))
     const cache = loadTicketCache()
@@ -329,6 +338,9 @@ export default function StaffPage() {
                         {t.phoneLast4 ? <span className="rounded-full border border-zinc-800 bg-zinc-950/40 px-2 py-0.5 text-xs text-zinc-300">{t.phoneLast4}</span> : null}
                         <span className="rounded-full border border-zinc-800 bg-zinc-950/40 px-2 py-0.5 text-xs text-zinc-300">{t.headcount}명</span>
                         {t.source === 'onsite' ? <span className="rounded-full bg-fuchsia-500/15 px-2 py-0.5 text-xs text-fuchsia-200">현장예매</span> : null}
+                        {refundBadge(t) ? (
+                          <span className={`rounded-full px-2 py-0.5 text-xs ${refundBadge(t)!.cls}`}>{refundBadge(t)!.text}</span>
+                        ) : null}
                         {t.isPaid ? <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-xs text-emerald-200">입금</span> : <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-xs text-amber-200">미입금</span>}
                         {t.isCheckedIn ? <span className="rounded-full bg-sky-500/15 px-2 py-0.5 text-xs text-sky-200">입장</span> : <span className="rounded-full bg-zinc-700/30 px-2 py-0.5 text-xs text-zinc-200">미입장</span>}
                         {isPending ? <span className="rounded-full bg-sky-500/15 px-2 py-0.5 text-xs text-sky-200">동기화 대기 · {maxTry || 0}</span> : null}
@@ -414,9 +426,27 @@ export default function StaffPage() {
                   </div>
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  <button className="ui-btn-ghost px-3 py-2 text-xs" onClick={() => void onRefundStatus(t._id, 'processing')}>처리중</button>
-                  <button className="ui-btn-primary px-3 py-2 text-xs" onClick={() => void onRefundStatus(t._id, 'completed')}>환불완료</button>
-                  <button className="ui-btn-ghost border-rose-500/20 bg-rose-500/10 px-3 py-2 text-xs text-rose-200 hover:bg-rose-500/15" onClick={() => void onRefundStatus(t._id, 'rejected')}>반려</button>
+                  <button
+                    className={t.refundRequest?.status === 'processing' ? 'ui-btn-primary px-3 py-2 text-xs' : 'ui-btn-ghost px-3 py-2 text-xs'}
+                    disabled={t.refundRequest?.status === 'processing'}
+                    onClick={() => void onRefundStatus(t._id, 'processing')}
+                  >
+                    처리중
+                  </button>
+                  <button
+                    className={t.refundRequest?.status === 'completed' ? 'ui-btn-primary px-3 py-2 text-xs' : 'ui-btn-ghost px-3 py-2 text-xs'}
+                    disabled={t.refundRequest?.status === 'completed'}
+                    onClick={() => void onRefundStatus(t._id, 'completed')}
+                  >
+                    환불완료
+                  </button>
+                  <button
+                    className={t.refundRequest?.status === 'rejected' ? 'ui-btn-ghost border-rose-500/20 bg-rose-500/15 px-3 py-2 text-xs text-rose-200' : 'ui-btn-ghost border-rose-500/20 bg-rose-500/10 px-3 py-2 text-xs text-rose-200 hover:bg-rose-500/15'}
+                    disabled={t.refundRequest?.status === 'rejected'}
+                    onClick={() => void onRefundStatus(t._id, 'rejected')}
+                  >
+                    반려
+                  </button>
                 </div>
               </div>
             </div>

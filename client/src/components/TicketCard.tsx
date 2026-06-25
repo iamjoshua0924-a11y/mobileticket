@@ -16,7 +16,7 @@ export default function TicketCard({ ticket }: { ticket: Ticket }) {
         <img
           src={HERO_IMAGE}
           alt="Midsummer Splash 비주얼"
-          className="hero-image max-h-[180px] w-full object-contain bg-slate-950/70 p-2"
+          className="hero-image block w-full h-auto object-contain object-top"
           loading="eager"
         />
       </div>
