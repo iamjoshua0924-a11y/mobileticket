@@ -82,6 +82,104 @@ body {
   .animate-pulse-glow {
     animation: pulseGlow 3.8s ease-in-out infinite;
   }
+  .animate-site-reveal {
+    animation: siteReveal 680ms cubic-bezier(.2,.8,.2,1) both;
+  }
+}
+
+.intro-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  overflow: hidden;
+  pointer-events: none;
+  animation: introOverlayOut 700ms ease 2.32s forwards;
+}
+
+.intro-backdrop,
+.intro-nocturne-glow,
+.intro-warm-rise,
+.intro-burst-wrap,
+.intro-meteors {
+  position: absolute;
+  inset: 0;
+}
+
+.intro-backdrop {
+  background:
+    radial-gradient(1200px 680px at 50% 18%, rgba(56, 189, 248, 0.08), transparent 55%),
+    linear-gradient(180deg, rgba(2, 6, 23, 0.98), rgba(3, 7, 18, 0.98));
+  backdrop-filter: blur(20px);
+}
+
+.intro-nocturne-glow {
+  background:
+    radial-gradient(800px 420px at 18% 14%, rgba(56, 189, 248, 0.14), transparent 60%),
+    radial-gradient(900px 480px at 82% 18%, rgba(14, 165, 233, 0.12), transparent 62%);
+  animation: nocturneBreathe 2.2s ease-in-out both;
+}
+
+.intro-meteor {
+  position: absolute;
+  top: -12%;
+  width: 2px;
+  height: 180px;
+  opacity: 0;
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(186, 230, 253, 0), rgba(186, 230, 253, 0.98), rgba(56, 189, 248, 0));
+  transform: rotate(26deg) translate3d(0, -30px, 0);
+  box-shadow: 0 0 20px rgba(125, 211, 252, 0.28);
+  animation-name: meteorFall;
+  animation-timing-function: cubic-bezier(.24,.76,.22,1);
+  animation-fill-mode: both;
+}
+
+.intro-warm-rise {
+  inset: auto 0 -12% 0;
+  height: 48vh;
+  background:
+    radial-gradient(60% 90% at 50% 100%, rgba(251, 191, 36, 0.42), transparent 58%),
+    radial-gradient(55% 80% at 50% 100%, rgba(248, 113, 113, 0.30), transparent 60%),
+    linear-gradient(180deg, rgba(251, 191, 36, 0), rgba(248, 113, 113, 0.22));
+  filter: blur(18px);
+  opacity: 0;
+  transform: translateY(48px) scale(1.04);
+  animation: warmRise 1.3s cubic-bezier(.2,.8,.2,1) 0.92s forwards;
+}
+
+.intro-burst-wrap {
+  display: grid;
+  place-items: center;
+}
+
+.intro-burst-core,
+.intro-burst-ring {
+  position: absolute;
+  border-radius: 999px;
+}
+
+.intro-burst-core {
+  width: 18px;
+  height: 18px;
+  background: radial-gradient(circle, rgba(255,255,255,0.98), rgba(125, 211, 252, 0.98) 35%, rgba(56, 189, 248, 0.12) 72%, transparent 74%);
+  box-shadow: 0 0 42px rgba(125, 211, 252, 0.7);
+  opacity: 0;
+  transform: scale(0.15);
+  animation: burstCore 1.05s cubic-bezier(.18,.82,.2,1) 1.58s forwards;
+}
+
+.intro-burst-ring {
+  width: 24px;
+  height: 24px;
+  border: 1.5px solid rgba(186, 230, 253, 0.92);
+  opacity: 0;
+  transform: scale(0.2);
+  animation: burstRing 1.05s cubic-bezier(.18,.82,.2,1) 1.66s forwards;
+}
+
+.intro-burst-ring-2 {
+  border-color: rgba(251, 191, 36, 0.55);
+  animation-delay: 1.74s;
 }
 
 @keyframes fadeUp {
@@ -102,4 +200,58 @@ body {
 @keyframes pulseGlow {
   0%, 100% { box-shadow: 0 0 0 1px rgba(56, 189, 248, 0.16) inset, 0 18px 48px rgba(2, 132, 199, 0.12); }
   50% { box-shadow: 0 0 0 1px rgba(125, 211, 252, 0.28) inset, 0 20px 58px rgba(14, 165, 233, 0.18); }
+}
+
+@keyframes siteReveal {
+  from { opacity: 0; transform: scale(1.01); filter: blur(4px); }
+  to { opacity: 1; transform: scale(1); filter: blur(0); }
+}
+
+@keyframes introOverlayOut {
+  to { opacity: 0; visibility: hidden; }
+}
+
+@keyframes nocturneBreathe {
+  0% { opacity: 0.4; transform: scale(1.06); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+@keyframes meteorFall {
+  0% { opacity: 0; transform: translate3d(42px, -46px, 0) rotate(26deg) scaleY(0.7); }
+  12% { opacity: 1; }
+  70% { opacity: 1; }
+  100% { opacity: 0; transform: translate3d(-170px, 360px, 0) rotate(26deg) scaleY(1); }
+}
+
+@keyframes warmRise {
+  0% { opacity: 0; transform: translateY(50px) scale(1.04); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes burstCore {
+  0% { opacity: 0; transform: scale(0.12); }
+  25% { opacity: 1; transform: scale(0.8); }
+  52% { opacity: 1; transform: scale(8.5); }
+  100% { opacity: 0; transform: scale(14); }
+}
+
+@keyframes burstRing {
+  0% { opacity: 0; transform: scale(0.25); }
+  20% { opacity: 0.9; }
+  58% { opacity: 0.42; transform: scale(12); }
+  100% { opacity: 0; transform: scale(16); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .intro-overlay,
+  .animate-site-reveal,
+  .animate-fade-up,
+  .animate-float-soft,
+  .animate-pulse-glow {
+    animation: none !important;
+  }
+
+  .intro-overlay {
+    display: none;
+  }
 }
