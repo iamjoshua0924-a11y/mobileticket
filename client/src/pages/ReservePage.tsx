@@ -28,12 +28,12 @@ export default function ReservePage() {
 
   return (
     <div className="mx-auto max-w-md px-5 py-10">
-      <h1 className="text-2xl font-bold tracking-tight text-zinc-50">Gamma Ticketing</h1>
-      <p className="mt-2 text-sm text-zinc-400">회원가입 없이 빠르게 예매하고, 예매번호를 받습니다.</p>
+      <h1 className="text-2xl font-bold tracking-tight text-zinc-50">Summer Splash 사전예약</h1>
+      <p className="mt-2 text-sm text-zinc-400">사전 예매 후 예매 번호로 빠른 입장을 도와드립니다.</p>
 
       <form onSubmit={onSubmit} className="mt-8 space-y-4">
         <div>
-          <label className="text-sm text-zinc-300">대표자명</label>
+          <label className="text-sm text-zinc-300">예약자명</label>
           <input
             className="mt-1 w-full rounded-xl border border-zinc-800 bg-zinc-900/40 px-3 py-2 text-zinc-100 outline-none focus:border-violet-500"
             value={name}
@@ -100,9 +100,6 @@ export default function ReservePage() {
           <Link className="text-violet-300 underline underline-offset-2" to="/reserve/lookup">
             /reserve/lookup
           </Link>
-        </div>
-        <div>
-          스태프 전용: <code className="rounded bg-zinc-900 px-1 py-0.5">/staff</code>
         </div>
       </div>
     </div>

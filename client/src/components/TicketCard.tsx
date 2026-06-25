@@ -4,7 +4,7 @@ export default function TicketCard({ ticket }: { ticket: Ticket }) {
   return (
     <div className="mx-auto w-full max-w-sm rounded-2xl border border-zinc-800 bg-zinc-950/60 p-5 shadow-xl">
       <div className="flex items-center justify-between gap-3">
-        <div className="text-xs font-semibold tracking-widest text-violet-300">GAMMA TICKET</div>
+        <div className="text-xs font-semibold tracking-widest text-violet-300">SUMMER SPLASH</div>
         <div className="rounded-full border border-zinc-800 bg-zinc-900 px-2 py-1 text-xs text-zinc-300">
           {ticket.headcount}명
         </div>
@@ -17,7 +17,7 @@ export default function TicketCard({ ticket }: { ticket: Ticket }) {
 
       <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
         <div className="rounded-xl border border-zinc-800 bg-zinc-900/40 p-3">
-          <div className="text-xs text-zinc-400">대표자</div>
+          <div className="text-xs text-zinc-400">예약자</div>
           <div className="mt-1 font-semibold text-zinc-100">{ticket.name}</div>
         </div>
         <div className="rounded-xl border border-zinc-800 bg-zinc-900/40 p-3">
@@ -38,4 +38,3 @@ export default function TicketCard({ ticket }: { ticket: Ticket }) {
     </div>
   )
 }
-
