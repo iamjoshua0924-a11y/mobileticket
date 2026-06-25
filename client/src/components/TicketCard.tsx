@@ -2,9 +2,9 @@ import type { Ticket } from '../lib/types'
 
 export default function TicketCard({ ticket }: { ticket: Ticket }) {
   return (
-    <div className="mx-auto w-full max-w-sm rounded-2xl border border-zinc-800 bg-zinc-950/60 p-5 shadow-xl">
+    <div className="mx-auto w-full max-w-sm rounded-2xl border border-sky-500/40 bg-zinc-950/60 p-5 shadow-xl ring-2 ring-sky-500/35">
       <div className="flex items-center justify-between gap-3">
-        <div className="text-xs font-semibold tracking-widest text-violet-300">SUMMER SPLASH</div>
+        <div className="text-base font-extrabold tracking-widest text-sky-300">Summer Splash</div>
         <div className="rounded-full border border-zinc-800 bg-zinc-900 px-2 py-1 text-xs text-zinc-300">
           {ticket.headcount}명
         </div>
@@ -31,9 +31,8 @@ export default function TicketCard({ ticket }: { ticket: Ticket }) {
         <div className="mt-1 font-semibold text-zinc-100">{ticket.depositorName}</div>
       </div>
 
-      <div className="mt-4 flex items-center justify-between text-xs text-zinc-400">
-        <span>캡처해서 현장에 보여주세요</span>
-        <span className="rounded-full bg-violet-500/10 px-2 py-1 text-violet-300">NO LOGIN</span>
+      <div className="mt-4 text-center text-xs text-zinc-400">
+        캡처해서 현장에 보여주세요
       </div>
     </div>
   )

@@ -11,6 +11,7 @@ export default function App() {
       <Route path="/reserve" element={<ReservePage />} />
       <Route path="/reserve/lookup" element={<ReserveLookupPage />} />
       <Route path="/reserve/success" element={<ReserveSuccessPage />} />
+      <Route path="/ticket" element={<ReserveSuccessPage />} />
       <Route path="/staff" element={<StaffPage />} />
       <Route path="*" element={<div className="p-6 text-zinc-300">Not Found</div>} />
     </Routes>
