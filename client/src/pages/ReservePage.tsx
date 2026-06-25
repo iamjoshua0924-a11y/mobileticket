@@ -27,15 +27,15 @@ export default function ReservePage() {
   }
 
   return (
-    <div className="mx-auto max-w-md px-5 py-10">
-      <h1 className="text-2xl font-bold tracking-tight text-zinc-50">Summer Splash 사전예약</h1>
+    <div className="mx-auto max-w-md px-5 py-10 animate-fade-up">
+      <h1 className="text-3xl font-extrabold tracking-tight text-sky-300">Summer Splash!</h1>
       <p className="mt-2 text-sm text-zinc-400">사전 예매 후 예매 번호로 빠른 입장을 도와드립니다.</p>
 
       <form onSubmit={onSubmit} className="mt-8 space-y-4">
         <div>
           <label className="text-sm text-zinc-300">예약자명</label>
           <input
-            className="mt-1 w-full rounded-xl border border-zinc-800 bg-zinc-900/40 px-3 py-2 text-zinc-100 outline-none focus:border-violet-500"
+            className="ui-input mt-1"
             value={name}
             onChange={(e) => setName(e.target.value)}
             required
@@ -45,7 +45,7 @@ export default function ReservePage() {
         <div>
           <label className="text-sm text-zinc-300">연락처</label>
           <input
-            className="mt-1 w-full rounded-xl border border-zinc-800 bg-zinc-900/40 px-3 py-2 text-zinc-100 outline-none focus:border-violet-500"
+            className="ui-input mt-1"
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
             inputMode="tel"
@@ -59,7 +59,7 @@ export default function ReservePage() {
           <div>
             <label className="text-sm text-zinc-300">인원수</label>
             <input
-              className="mt-1 w-full rounded-xl border border-zinc-800 bg-zinc-900/40 px-3 py-2 text-zinc-100 outline-none focus:border-violet-500"
+              className="ui-input mt-1"
               value={headcount}
               onChange={(e) => setHeadcount(Number(e.target.value))}
               inputMode="numeric"
@@ -71,7 +71,7 @@ export default function ReservePage() {
           <div>
             <label className="text-sm text-zinc-300">입금자명</label>
             <input
-              className="mt-1 w-full rounded-xl border border-zinc-800 bg-zinc-900/40 px-3 py-2 text-zinc-100 outline-none focus:border-violet-500"
+              className="ui-input mt-1"
               value={depositorName}
               onChange={(e) => setDepositorName(e.target.value)}
               required
@@ -88,7 +88,7 @@ export default function ReservePage() {
         <button
           type="submit"
           disabled={loading}
-          className="w-full rounded-xl bg-violet-500 px-4 py-3 text-sm font-semibold text-zinc-950 hover:bg-violet-400 disabled:opacity-60"
+          className="ui-btn-primary w-full"
         >
           {loading ? '예매 생성 중…' : '예매하기'}
         </button>
@@ -97,7 +97,7 @@ export default function ReservePage() {
       <div className="mt-8 flex flex-col gap-2 text-xs text-zinc-500">
         <div>
           예매번호로 다시 확인:{" "}
-          <Link className="text-violet-300 underline underline-offset-2" to="/reserve/lookup">
+          <Link className="ui-link" to="/reserve/lookup">
             /reserve/lookup
           </Link>
         </div>

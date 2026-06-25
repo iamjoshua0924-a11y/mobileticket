@@ -5,8 +5,69 @@
 html, body, #root { height: 100%; }
 
 body {
-  @apply bg-zinc-950 text-zinc-100 antialiased;
+  @apply text-zinc-100 antialiased;
+  background-color: #020617;
+  background-image:
+    radial-gradient(900px 520px at 15% 5%, rgba(56, 189, 248, 0.22), transparent 58%),
+    radial-gradient(900px 520px at 110% 15%, rgba(59, 130, 246, 0.16), transparent 55%),
+    radial-gradient(900px 520px at 70% 120%, rgba(14, 165, 233, 0.12), transparent 60%);
 }
 
 * { -webkit-tap-highlight-color: transparent; }
 
+@layer components {
+  .ui-card {
+    @apply rounded-2xl border border-sky-500/15 bg-zinc-950/55 shadow-xl backdrop-blur;
+    box-shadow:
+      0 0 0 1px rgba(56, 189, 248, 0.08) inset,
+      0 18px 38px rgba(0, 0, 0, 0.35);
+  }
+
+  .ui-input {
+    @apply w-full rounded-xl border border-sky-500/15 bg-zinc-900/40 px-3 py-2 text-zinc-100 outline-none transition;
+    @apply focus:border-sky-400/70 focus:ring-2 focus:ring-sky-500/20;
+  }
+
+  .ui-btn {
+    @apply inline-flex items-center justify-center rounded-xl px-4 py-3 text-sm font-semibold transition;
+    @apply active:scale-[0.98] disabled:opacity-60;
+  }
+
+  .ui-btn-primary {
+    @apply ui-btn bg-sky-500 text-slate-950 hover:bg-sky-400;
+  }
+
+  .ui-btn-ghost {
+    @apply ui-btn border border-sky-500/15 bg-zinc-900/35 text-zinc-100 hover:bg-zinc-900/60;
+  }
+
+  .ui-link {
+    @apply text-sky-300 underline underline-offset-2 hover:text-sky-200;
+  }
+}
+
+@layer utilities {
+  .animate-fade-up {
+    animation: fadeUp 420ms cubic-bezier(.2,.8,.2,1) both;
+  }
+  .animate-fade-in {
+    animation: fadeIn 320ms ease-out both;
+  }
+  .hover-glow {
+    transition: box-shadow 220ms ease, transform 220ms ease;
+  }
+  .hover-glow:hover {
+    box-shadow: 0 0 0 1px rgba(56, 189, 248, 0.18) inset, 0 18px 48px rgba(2, 132, 199, 0.18);
+    transform: translateY(-1px);
+  }
+}
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}

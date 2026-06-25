@@ -31,7 +31,7 @@ export default function ReserveLookupPage() {
   }
 
   return (
-    <div className="mx-auto max-w-md px-5 py-10">
+    <div className="mx-auto max-w-md px-5 py-10 animate-fade-up">
       <h1 className="text-xl font-bold text-zinc-50">예매번호로 조회</h1>
       <p className="mt-2 text-sm text-zinc-400">예매 완료 화면을 놓쳤다면, 예매번호로 다시 확인할 수 있어요.</p>
 
@@ -39,7 +39,7 @@ export default function ReserveLookupPage() {
         <div>
           <label className="text-sm text-zinc-300">예매번호</label>
           <input
-            className="mt-1 w-full rounded-xl border border-zinc-800 bg-zinc-900/40 px-3 py-2 font-mono text-zinc-100 outline-none focus:border-violet-500"
+            className="ui-input mt-1 font-mono"
             value={bookingNo}
             onChange={(e) => setBookingNo(e.target.value)}
             placeholder="GT-20260625-4K7Q2M"
@@ -57,7 +57,7 @@ export default function ReserveLookupPage() {
         <button
           type="submit"
           disabled={loading}
-          className="w-full rounded-xl bg-violet-500 px-4 py-3 text-sm font-semibold text-zinc-950 hover:bg-violet-400 disabled:opacity-60"
+          className="ui-btn-primary w-full"
         >
           {loading ? '조회 중…' : '조회하기'}
         </button>
@@ -67,4 +67,3 @@ export default function ReserveLookupPage() {
     </div>
   )
 }
-

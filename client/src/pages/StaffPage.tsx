@@ -11,6 +11,27 @@ function contains(hay: string, needle: string) {
   return hay.toLowerCase().includes(needle.toLowerCase())
 }
 
+function fmt(dt?: string | null) {
+  if (!dt) return null
+  const d = new Date(dt)
+  if (Number.isNaN(d.getTime())) return null
+  return d.toLocaleString()
+}
+
+function relativeFrom(dt?: string | null) {
+  if (!dt) return null
+  const d = new Date(dt)
+  if (Number.isNaN(d.getTime())) return null
+  const diff = Date.now() - d.getTime()
+  const min = Math.floor(diff / 60000)
+  if (min < 1) return '방금'
+  if (min < 60) return `${min}분 전`
+  const hour = Math.floor(min / 60)
+  if (hour < 24) return `${hour}시간 전`
+  const day = Math.floor(hour / 24)
+  return `${day}일 전`
+}
+
 export default function StaffPage() {
   const [staffSecret, setStaffSecret] = useState<string | null>(() => getStaffSecretFromSession())
   const [secretInput, setSecretInput] = useState('')
@@ -155,21 +176,21 @@ export default function StaffPage() {
 
   if (!staffSecret) {
     return (
-      <div className="mx-auto max-w-md px-5 py-10">
+      <div className="mx-auto max-w-md px-5 py-10 animate-fade-up">
         <h1 className="text-xl font-bold text-zinc-50">스태프 체크인</h1>
         <p className="mt-2 text-sm text-zinc-400">passcode(환경변수 STAFF_SECRET)를 입력하세요.</p>
 
-        <div className="mt-6 rounded-2xl border border-zinc-800 bg-zinc-900/30 p-4">
+        <div className="ui-card mt-6 p-4">
           <label className="text-sm text-zinc-300">passcode</label>
           <input
-            className="mt-2 w-full rounded-xl border border-zinc-800 bg-zinc-950/40 px-3 py-2 text-zinc-100 outline-none focus:border-violet-500"
+            className="ui-input mt-2"
             value={secretInput}
             onChange={(e) => setSecretInput(e.target.value)}
             type="password"
             autoComplete="off"
           />
           <button
-            className="mt-3 w-full rounded-xl bg-violet-500 px-4 py-3 text-sm font-semibold text-zinc-950 hover:bg-violet-400"
+            className="ui-btn-primary mt-3 w-full"
             onClick={() => {
               setStaffSecretToSession(secretInput)
               setStaffSecret(secretInput)
@@ -184,10 +205,10 @@ export default function StaffPage() {
   }
 
   return (
-    <div className="mx-auto max-w-3xl px-5 py-8">
+    <div className="mx-auto max-w-3xl px-5 py-8 animate-fade-up">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl font-bold text-zinc-50">입장 확인</h1>
+          <h1 className="text-xl font-bold text-sky-300">입장 확인</h1>
           <div className="mt-1 text-xs text-zinc-500">
             {syncedAt ? `마지막 동기화: ${new Date(syncedAt).toLocaleString()}` : '캐시/오프라인 모드'}
           </div>
@@ -199,13 +220,13 @@ export default function StaffPage() {
           </div>
           <button
             onClick={() => void flushPending()}
-            className="rounded-lg border border-zinc-800 bg-zinc-900/40 px-3 py-2 text-xs text-zinc-300 hover:bg-zinc-900"
+            className="ui-btn-ghost px-3 py-2 text-xs"
           >
             큐 동기화
           </button>
           <button
             onClick={() => void refresh()}
-            className="rounded-lg bg-zinc-100 px-3 py-2 text-xs font-semibold text-zinc-950 hover:bg-white"
+            className="ui-btn-primary px-3 py-2 text-xs"
           >
             {loading ? '불러오는 중…' : '새로고침'}
           </button>
@@ -214,7 +235,7 @@ export default function StaffPage() {
 
       <div className="mt-5 flex flex-col gap-2 sm:flex-row sm:items-center">
         <input
-          className="w-full rounded-xl border border-zinc-800 bg-zinc-900/40 px-3 py-2 text-zinc-100 outline-none focus:border-violet-500"
+          className="ui-input"
           placeholder="이름 / 예매번호 / 연락처4자리 / 입금자명"
           value={q}
           onChange={(e) => setQ(e.target.value)}
@@ -235,7 +256,7 @@ export default function StaffPage() {
           const maxTry = actions.reduce((m, a) => Math.max(m, a.tryCount || 0), 0)
           const lastErr = actions.find((a) => a.lastError)?.lastError
           return (
-            <div key={t._id} className="rounded-2xl border border-zinc-800 bg-zinc-900/30 p-4">
+            <div key={t._id} className="ui-card hover-glow p-4">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
@@ -252,7 +273,7 @@ export default function StaffPage() {
                       <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-xs text-amber-200">미입금</span>
                     )}
                     {t.isCheckedIn ? (
-                      <span className="rounded-full bg-violet-500/15 px-2 py-0.5 text-xs text-violet-200">입장</span>
+                      <span className="rounded-full bg-sky-500/15 px-2 py-0.5 text-xs text-sky-200">입장</span>
                     ) : (
                       <span className="rounded-full bg-zinc-700/30 px-2 py-0.5 text-xs text-zinc-200">미입장</span>
                     )}
@@ -265,13 +286,27 @@ export default function StaffPage() {
 
                   <div className="mt-1 break-all font-mono text-xs text-zinc-400">{t.bookingNo}</div>
                   <div className="mt-1 text-xs text-zinc-500">입금자명: {t.depositorName}</div>
+                  <div className="mt-2 grid gap-1 text-xs text-zinc-400">
+                    <div>
+                      예약: <span className="text-zinc-200">{fmt(t.createdAt) || '-'}</span>
+                      <span className="ml-2 text-zinc-500">{relativeFrom(t.createdAt) || ''}</span>
+                    </div>
+                    <div className="flex flex-wrap gap-x-4 gap-y-1">
+                      <span>
+                        입금: <span className="text-zinc-200">{fmt(t.paidAt) || '-'}</span>
+                      </span>
+                      <span>
+                        입장: <span className="text-zinc-200">{fmt(t.checkedInAt) || '-'}</span>
+                      </span>
+                    </div>
+                  </div>
                   {lastErr ? <div className="mt-1 text-xs text-sky-200/90">{lastErr}</div> : null}
                 </div>
 
                 <div className="flex shrink-0 flex-wrap gap-2">
                   <button
                     disabled={isPending}
-                    className="rounded-xl border border-zinc-800 bg-zinc-950/40 px-3 py-2 text-xs text-zinc-200 hover:bg-zinc-950"
+                    className="ui-btn-ghost px-3 py-2 text-xs"
                     style={isPending ? { opacity: 0.55 } : undefined}
                     onClick={() => {
                       const action: PendingAction = {
@@ -289,7 +324,7 @@ export default function StaffPage() {
                   </button>
                   <button
                     disabled={isPending}
-                    className="rounded-xl bg-violet-500 px-3 py-2 text-xs font-semibold text-zinc-950 hover:bg-violet-400"
+                    className="ui-btn-primary px-3 py-2 text-xs"
                     style={isPending ? { opacity: 0.55 } : undefined}
                     onClick={() => {
                       const action: PendingAction = {
