@@ -18,6 +18,8 @@ function cleanSnapshot(ticket) {
   const obj = typeof ticket.toObject === 'function' ? ticket.toObject() : { ...ticket };
   delete obj.__v;
   delete obj.history;
+  // 레퍼럴은 스태프 일반 화면에서 노출하지 않음(정산에서만 집계)
+  delete obj.refCode;
   return obj;
 }
 
@@ -26,7 +28,9 @@ function buildTicketPayload(body, fallback = {}) {
   const phone = String(body?.phone ?? fallback.phone ?? '').trim();
   const headcount = Number(body?.headcount ?? fallback.headcount ?? 1);
   const depositorName = String(body?.depositorName ?? fallback.depositorName ?? '').trim();
-  return { name, phone, headcount, depositorName };
+  const refCodeRaw = body?.refCode ?? fallback.refCode ?? null;
+  const refCode = ['k', 'b', '3', 'n'].includes(String(refCodeRaw)) ? String(refCodeRaw) : null;
+  return { name, phone, headcount, depositorName, refCode };
 }
 
 function isValidReservation(payload) {
@@ -106,6 +110,8 @@ router.post('/', async (req, res) => {
       existingTicket.phone = payload.phone;
       existingTicket.headcount = payload.headcount;
       existingTicket.depositorName = payload.depositorName;
+      // 레퍼럴은 최초 유입을 보존: 기존에 없을 때만 채움
+      if (!existingTicket.refCode && payload.refCode) existingTicket.refCode = payload.refCode;
       await existingTicket.save();
       return res.status(200).json({ ticket: cleanSnapshot(existingTicket), action: 'updated' });
     }
@@ -116,7 +122,8 @@ router.post('/', async (req, res) => {
     const ticket = await Ticket.create({
       bookingNo,
       ...payload,
-      source: 'online'
+      source: 'online',
+      refCode: payload.refCode || null
     });
 
     pushHistory(ticket, 'created', '최초 생성');
@@ -229,9 +236,21 @@ router.get('/settlement', staffAuth, async (req, res) => {
     .filter((t) => t.isPaid || t.source === 'onsite')
     .reduce((sum, t) => sum + Number(t.headcount || 0), 0);
 
+  const referralCounts = { k: 0, b: 0, '3': 0, n: 0 };
+  for (const t of tickets) {
+    if (!(t.isPaid || t.source === 'onsite')) continue;
+    const rc = t.refCode;
+    if (rc === 'k' || rc === 'b' || rc === '3' || rc === 'n') {
+      referralCounts[rc] += Number(t.headcount || 0);
+    }
+  }
+
   return res.json({
     totalHeadcount,
-    revenue: totalHeadcount * 5000
+    revenue: totalHeadcount * 5000,
+    // (k/b/3/n) 순서로 표기하기 위함
+    referralCounts,
+    referralCountsOrder: [referralCounts.k, referralCounts.b, referralCounts['3'], referralCounts.n]
   });
 });
 

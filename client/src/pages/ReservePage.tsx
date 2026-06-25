@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useEffect, useMemo, useState } from 'react'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { checkDuplicate, createTicket } from '../lib/api'
 import type { Ticket } from '../lib/types'
 
@@ -9,6 +9,7 @@ type DuplicateFlow = 'none' | 'choose' | 'edit'
 
 export default function ReservePage() {
   const nav = useNavigate()
+  const location = useLocation()
 
   const [form, setForm] = useState({
     name: '',
@@ -21,8 +22,23 @@ export default function ReservePage() {
   const [duplicateTicket, setDuplicateTicket] = useState<Ticket | null>(null)
   const [duplicateFlow, setDuplicateFlow] = useState<DuplicateFlow>('none')
   const [reason, setReason] = useState('')
+  const [refCode, setRefCode] = useState<'k' | 'b' | '3' | 'n' | null>(null)
 
   const normalizedPhone = useMemo(() => form.phone.trim(), [form.phone])
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search)
+    const ref = params.get('ref')
+    if (ref === 'k' || ref === 'b' || ref === '3' || ref === 'n') {
+      sessionStorage.setItem('ms_ref', ref)
+      setRefCode(ref)
+      return
+    }
+    const saved = sessionStorage.getItem('ms_ref')
+    if (saved === 'k' || saved === 'b' || saved === '3' || saved === 'n') {
+      setRefCode(saved)
+    }
+  }, [location.search])
 
   function update<K extends keyof typeof form>(key: K, value: (typeof form)[K]) {
     setForm((prev) => ({ ...prev, [key]: value }))
@@ -35,7 +51,8 @@ export default function ReservePage() {
       const result = await createTicket({
         ...form,
         mode,
-        reason: reason.trim() || undefined
+        reason: reason.trim() || undefined,
+        refCode: refCode || undefined
       })
       setDuplicateFlow('none')
       setDuplicateTicket(null)

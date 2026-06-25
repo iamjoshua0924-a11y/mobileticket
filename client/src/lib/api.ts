@@ -25,6 +25,7 @@ export async function createTicket(payload: {
   depositorName: string
   mode?: 'create' | 'replace' | 'edit'
   reason?: string
+  refCode?: 'k' | 'b' | '3' | 'n'
 }): Promise<{ ticket: Ticket; action: 'created' | 'updated' }> {
   const res = await fetch('/api/tickets', {
     method: 'POST',
@@ -84,7 +85,7 @@ export async function fetchSettlement(staffSecret: string) {
   const res = await fetch('/api/tickets/settlement', {
     headers: { 'x-staff-secret': staffSecret }
   })
-  return unwrap<{ totalHeadcount: number; revenue: number }>(res)
+  return unwrap<{ totalHeadcount: number; revenue: number; referralCountsOrder?: number[] }>(res)
 }
 
 export async function createOnsiteTicket(
@@ -151,4 +152,3 @@ export async function updateRefundStatus(
   const data = await unwrap<{ ticket: Ticket }>(res)
   return data.ticket
 }
-

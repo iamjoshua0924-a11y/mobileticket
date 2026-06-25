@@ -29,7 +29,7 @@ export default function App() {
 
       <div className={showIntro ? 'pointer-events-none opacity-0' : 'animate-site-reveal'}>
         <Routes>
-          <Route path="/" element={<Navigate to="/reserve" replace />} />
+          <Route path="/" element={<Navigate to={`/reserve${location.search || ''}`} replace />} />
           <Route path="/reserve" element={<ReservePage />} />
           <Route path="/reserve/lookup" element={<ReserveLookupPage />} />
           <Route path="/reserve/success" element={<ReserveSuccessPage />} />

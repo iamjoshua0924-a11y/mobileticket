@@ -61,7 +61,7 @@ export default function StaffPage() {
   const [restorePreview, setRestorePreview] = useState<DeletedLog | null>(null)
   const [onsiteOpen, setOnsiteOpen] = useState(false)
   const [onsiteForm, setOnsiteForm] = useState({ name: '', headcount: 1 })
-  const [settlement, setSettlement] = useState<{ totalHeadcount: number; revenue: number } | null>(null)
+  const [settlement, setSettlement] = useState<{ totalHeadcount: number; revenue: number; referralCountsOrder?: number[] } | null>(null)
   const [showSettlement, setShowSettlement] = useState(false)
 
   const flushingRef = useRef(false)
@@ -300,6 +300,11 @@ export default function StaffPage() {
         <div className="ui-card mt-4 p-4 text-sm text-zinc-100">
           입장수익 : <span className="text-sky-300">{settlement.revenue.toLocaleString()}원</span>
           <span className="ml-3 text-zinc-400">총 인원 {settlement.totalHeadcount}명</span>
+          {settlement.referralCountsOrder ? (
+            <span className="ml-2 text-zinc-400">
+              ({settlement.referralCountsOrder.join('/')})
+            </span>
+          ) : null}
         </div>
       ) : null}
 
