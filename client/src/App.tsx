@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Navigate, Route, Routes } from 'react-router-dom'
+import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import IntroOverlay from './components/IntroOverlay'
 import ReservePage from './pages/ReservePage'
 import ReserveSuccessPage from './pages/ReserveSuccessPage'
@@ -7,12 +7,21 @@ import ReserveLookupPage from './pages/ReserveLookupPage'
 import StaffPage from './pages/StaffPage'
 
 export default function App() {
-  const [showIntro, setShowIntro] = useState(true)
+  const location = useLocation()
+  const isStaffRoute = location.pathname.startsWith('/staff')
+  const [showIntro, setShowIntro] = useState(() => !isStaffRoute)
 
   useEffect(() => {
-    const timer = window.setTimeout(() => setShowIntro(false), 3000)
+    if (isStaffRoute) {
+      setShowIntro(false)
+      return
+    }
+
+    if (!showIntro) return
+
+    const timer = window.setTimeout(() => setShowIntro(false), 2200)
     return () => window.clearTimeout(timer)
-  }, [])
+  }, [isStaffRoute, showIntro])
 
   return (
     <>

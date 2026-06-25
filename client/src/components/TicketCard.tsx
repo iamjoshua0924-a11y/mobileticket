@@ -4,7 +4,8 @@ const HERO_IMAGE = 'https://i.ibb.co/wrRqcfzj/Kakao-Talk-20260625-115249931.jpg'
 
 export default function TicketCard({ ticket }: { ticket: Ticket }) {
   return (
-    <div className="ui-card hover-glow animate-float-soft mx-auto w-full max-w-sm border-sky-400/35 p-5 ring-2 ring-sky-500/35">
+    <div className="ticket-print-in ui-card hover-glow ticket-card-shell mx-auto w-full max-w-sm overflow-hidden border-sky-400/35 p-5 ring-2 ring-sky-500/35">
+      <div className="ticket-print-sheen" />
       <div className="hero-frame mb-4">
         <img
           src={HERO_IMAGE}
@@ -42,8 +43,9 @@ export default function TicketCard({ ticket }: { ticket: Ticket }) {
         <div className="mt-1 font-semibold text-zinc-100">{ticket.depositorName}</div>
       </div>
 
-      <div className="mt-4 text-center text-xs text-zinc-400">
-        캡처해서 현장에 보여주세요
+      <div className="mt-4 text-center text-xs leading-5 text-zinc-400">
+        <div>캡처해서 현장에 보여주세요</div>
+        <div className="text-zinc-500">입금 확인된 티켓만 입장을 도와드립니다</div>
       </div>
     </div>
   )
