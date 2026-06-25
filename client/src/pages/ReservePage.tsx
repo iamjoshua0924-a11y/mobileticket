@@ -34,7 +34,7 @@ export default function ReservePage() {
         <img
           src={HERO_IMAGE}
           alt="Summer Splash 메인 비주얼"
-          className="hero-image max-h-[220px] w-full object-cover object-center"
+          className="hero-image max-h-[310px] w-full object-cover object-[center_18%]"
           loading="eager"
         />
       </div>

@@ -9,7 +9,7 @@ export default function TicketCard({ ticket }: { ticket: Ticket }) {
         <img
           src={HERO_IMAGE}
           alt="Summer Splash 비주얼"
-          className="hero-image max-h-[120px] w-full object-cover object-center"
+          className="hero-image max-h-[172px] w-full object-cover object-[center_18%]"
           loading="eager"
         />
       </div>

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { applyAction, fetchTickets } from '../lib/api'
+import { applyAction, deleteTicket, fetchTickets } from '../lib/api'
 import { getStaffSecretFromSession, loadPendingActions, loadTicketCache, savePendingActions, saveTicketCache, setStaffSecretToSession } from '../lib/storage'
 import type { PendingAction, Ticket } from '../lib/types'
 
@@ -43,6 +43,7 @@ export default function StaffPage() {
   const [q, setQ] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
 
   const flushingRef = useRef(false)
 
@@ -148,6 +149,14 @@ export default function StaffPage() {
     }
   }
 
+  function removeTicketLocal(ticketId: string) {
+    setTickets((prev) => prev.filter((t) => t._id !== ticketId))
+    const cache = loadTicketCache()
+    if (cache?.tickets) {
+      saveTicketCache({ tickets: cache.tickets.filter((t) => t._id !== ticketId), syncedAt: cache.syncedAt })
+    }
+  }
+
   function mergePending(prev: PendingAction[], action: PendingAction) {
     // 같은 ticketId + type 액션은 하나로 합쳐서 중복 큐를 방지
     const kept = prev.filter((a) => !(a.ticketId === action.ticketId && a.type === action.type))
@@ -171,6 +180,24 @@ export default function StaffPage() {
           a.id === action.id ? { ...a, tryCount: (a.tryCount || 0) + 1, lastError: '동기화 실패(재시도 대기)' } : a
         )
       )
+    }
+  }
+
+  async function onDeleteTicket(ticketId: string, name: string) {
+    if (!staffSecret) return
+    const ok = window.confirm(`'${name}' 예약을 삭제할까요? 이 작업은 되돌릴 수 없습니다.`)
+    if (!ok) return
+
+    setDeletingId(ticketId)
+    setError(null)
+    try {
+      await deleteTicket(staffSecret, ticketId)
+      setPending((prev) => prev.filter((a) => a.ticketId !== ticketId))
+      removeTicketLocal(ticketId)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '예약 삭제 실패')
+    } finally {
+      setDeletingId(null)
     }
   }
 
@@ -253,6 +280,7 @@ export default function StaffPage() {
         {filtered.map((t) => {
           const actions = pendingByTicket.get(t._id) || []
           const isPending = actions.length > 0
+          const isDeleting = deletingId === t._id
           const maxTry = actions.reduce((m, a) => Math.max(m, a.tryCount || 0), 0)
           const lastErr = actions.find((a) => a.lastError)?.lastError
           return (
@@ -305,9 +333,9 @@ export default function StaffPage() {
 
                 <div className="flex shrink-0 flex-wrap gap-2">
                   <button
-                    disabled={isPending}
+                    disabled={isPending || isDeleting}
                     className="ui-btn-ghost px-3 py-2 text-xs"
-                    style={isPending ? { opacity: 0.55 } : undefined}
+                    style={isPending || isDeleting ? { opacity: 0.55 } : undefined}
                     onClick={() => {
                       const action: PendingAction = {
                         id: nowId(),
@@ -323,9 +351,9 @@ export default function StaffPage() {
                     입금 토글
                   </button>
                   <button
-                    disabled={isPending}
+                    disabled={isPending || isDeleting}
                     className="ui-btn-primary px-3 py-2 text-xs"
-                    style={isPending ? { opacity: 0.55 } : undefined}
+                    style={isPending || isDeleting ? { opacity: 0.55 } : undefined}
                     onClick={() => {
                       const action: PendingAction = {
                         id: nowId(),
@@ -339,6 +367,14 @@ export default function StaffPage() {
                     }}
                   >
                     입장 토글
+                  </button>
+                  <button
+                    disabled={isPending || isDeleting}
+                    className="ui-btn-ghost border-rose-500/20 bg-rose-500/10 px-3 py-2 text-xs text-rose-200 hover:bg-rose-500/15"
+                    style={isPending || isDeleting ? { opacity: 0.55 } : undefined}
+                    onClick={() => void onDeleteTicket(t._id, t.name)}
+                  >
+                    {isDeleting ? '삭제 중…' : '예약 삭제'}
                   </button>
                 </div>
               </div>

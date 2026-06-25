@@ -88,6 +88,14 @@ router.patch('/:id/checkin', staffAuth, async (req, res) => {
   return res.json({ ticket });
 });
 
+// 스태프/관리자: 예약 삭제
+router.delete('/:id', staffAuth, async (req, res) => {
+  const { id } = req.params;
+  const ticket = await Ticket.findByIdAndDelete(id).lean();
+  if (!ticket) return res.status(404).json({ message: 'Not found' });
+  return res.json({ deletedId: id });
+});
+
 // 스태프/관리자: CSV 내보내기(비상용 종이 명단)
 router.get('/export.csv', staffAuth, async (req, res) => {
   const tickets = await Ticket.find({}).sort({ createdAt: 1 }).lean();
@@ -126,4 +134,3 @@ router.get('/export.csv', staffAuth, async (req, res) => {
 });
 
 module.exports = router;
-

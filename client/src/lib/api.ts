@@ -56,3 +56,13 @@ export async function applyAction(staffSecret: string, action: PendingAction): P
   const data = (await res.json()) as { ticket: Ticket }
   return data.ticket
 }
+
+export async function deleteTicket(staffSecret: string, ticketId: string): Promise<string> {
+  const res = await fetch(`/api/tickets/${ticketId}`, {
+    method: 'DELETE',
+    headers: { 'x-staff-secret': staffSecret }
+  })
+  if (!res.ok) throw new Error('예약 삭제 실패')
+  const data = (await res.json()) as { deletedId: string }
+  return data.deletedId
+}
