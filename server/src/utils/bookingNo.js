@@ -1,7 +1,7 @@
 const crypto = require('crypto');
 
-// 오타를 줄이기 위해 모호한 문자(O/0, I/1 등)를 제외한 알파벳 사용
-const ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+// 오타를 줄이기 위해 I, L, O, V 를 제외한 영문만 사용
+const ALPHABET = 'ABCDEFGHJKMNPQRSTUWXYZ';
 
 function randomToken(len) {
   let out = '';
@@ -20,8 +20,7 @@ function yyyymmdd(date = new Date()) {
 }
 
 function makeBookingNo(date = new Date()) {
-  return `GT-${yyyymmdd(date)}-${randomToken(6)}`;
+  return `GT-${yyyymmdd(date)}-${randomToken(3)}`;
 }
 
 module.exports = { makeBookingNo };
-

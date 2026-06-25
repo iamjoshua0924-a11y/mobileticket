@@ -1,27 +1,31 @@
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import TicketCard from '../components/TicketCard'
-import { fetchTicketByBooking } from '../lib/api'
+import { lookupTicket, requestRefund } from '../lib/api'
 import type { Ticket } from '../lib/types'
 
-function normalizeBookingNo(input: string) {
-  return input.trim().toUpperCase().replace(/\s+/g, '')
-}
+type LookupMode = 'person' | 'booking'
 
 export default function ReserveLookupPage() {
-  const [bookingNo, setBookingNo] = useState('')
-  const normalized = useMemo(() => normalizeBookingNo(bookingNo), [bookingNo])
-
+  const [mode, setMode] = useState<LookupMode>('person')
+  const [form, setForm] = useState({ name: '', phone: '', bookingNo: '' })
   const [ticket, setTicket] = useState<Ticket | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [refundOpen, setRefundOpen] = useState(false)
+  const [refundForm, setRefundForm] = useState({ accountHolder: '', bankName: '', accountNumber: '' })
+  const [refundMessage, setRefundMessage] = useState<string | null>(null)
 
   async function onLookup(e: React.FormEvent) {
     e.preventDefault()
     setError(null)
+    setRefundMessage(null)
     setTicket(null)
     setLoading(true)
     try {
-      const t = await fetchTicketByBooking(normalized)
+      const t =
+        mode === 'booking'
+          ? await lookupTicket({ mode: 'booking', bookingNo: form.bookingNo.trim().toUpperCase() })
+          : await lookupTicket({ mode: 'person', name: form.name.trim(), phone: form.phone.trim() })
       setTicket(t)
     } catch (err) {
       setError(err instanceof Error ? err.message : '조회 실패')
@@ -30,40 +34,113 @@ export default function ReserveLookupPage() {
     }
   }
 
+  async function onRefundSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!ticket) return
+    setError(null)
+    try {
+      const result = await requestRefund(ticket._id, refundForm)
+      setTicket(result.ticket)
+      setRefundMessage(result.message)
+      setRefundOpen(false)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '환불신청 실패')
+    }
+  }
+
   return (
     <div className="mx-auto max-w-md px-5 py-10 animate-fade-up">
-      <h1 className="text-xl font-bold text-zinc-50">예매번호로 조회</h1>
-      <p className="mt-2 text-sm text-zinc-400">예매 완료 화면을 놓쳤다면, 예매번호로 다시 확인할 수 있어요.</p>
+      <h1 className="text-xl font-bold text-zinc-50">예약 확인</h1>
 
-      <form onSubmit={onLookup} className="mt-6 space-y-3">
-        <div>
-          <label className="text-sm text-zinc-300">예매번호</label>
-          <input
-            className="ui-input mt-1 font-mono"
-            value={bookingNo}
-            onChange={(e) => setBookingNo(e.target.value)}
-            placeholder="GT-20260625-4K7Q2M"
-            required
-          />
-          <div className="mt-1 text-xs text-zinc-500">입력값: {normalized || '-'}</div>
+      <form onSubmit={onLookup} className="ui-card mt-6 space-y-4 p-5">
+        <div className="flex gap-3 text-sm text-zinc-200">
+          <label className="inline-flex items-center gap-2">
+            <input type="radio" checked={mode === 'person'} onChange={() => setMode('person')} />
+            이름+전화번호로 찾기
+          </label>
+          <label className="inline-flex items-center gap-2">
+            <input type="radio" checked={mode === 'booking'} onChange={() => setMode('booking')} />
+            예매번호로 조회하기
+          </label>
         </div>
 
-        {error ? (
-          <div className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-sm text-rose-200">
-            {error}
+        {mode === 'person' ? (
+          <div className="grid gap-3">
+            <div>
+              <label className="text-sm text-zinc-300">예약자명</label>
+              <input className="ui-input mt-1" value={form.name} onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))} required />
+            </div>
+            <div>
+              <label className="text-sm text-zinc-300">연락처</label>
+              <input
+                className="ui-input mt-1"
+                value={form.phone}
+                onChange={(e) => setForm((p) => ({ ...p, phone: e.target.value }))}
+                required
+              />
+            </div>
           </div>
-        ) : null}
+        ) : (
+          <div>
+            <label className="text-sm text-zinc-300">예매번호</label>
+            <input
+              className="ui-input mt-1 font-mono"
+              value={form.bookingNo}
+              onChange={(e) => setForm((p) => ({ ...p, bookingNo: e.target.value }))}
+              placeholder="GT-20260625-ABC"
+              required
+            />
+          </div>
+        )}
 
-        <button
-          type="submit"
-          disabled={loading}
-          className="ui-btn-primary w-full"
-        >
+        {error ? <div className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-sm text-rose-200">{error}</div> : null}
+        <button type="submit" disabled={loading} className="ui-btn-primary w-full">
           {loading ? '조회 중…' : '조회하기'}
         </button>
       </form>
 
       <div className="mt-6">{ticket ? <TicketCard ticket={ticket} /> : null}</div>
+
+      {ticket ? (
+        <div className="mt-5">
+          <button className="ui-btn-ghost w-full" onClick={() => setRefundOpen((v) => !v)}>
+            예약취소 / 환불신청
+          </button>
+        </div>
+      ) : null}
+
+      {refundOpen && ticket ? (
+        <form onSubmit={onRefundSubmit} className="ui-card mt-4 space-y-3 p-4">
+          <div className="text-sm font-semibold text-zinc-100">환불계좌를 입력해주세요</div>
+          <input
+            className="ui-input"
+            placeholder="예금주명"
+            value={refundForm.accountHolder}
+            onChange={(e) => setRefundForm((p) => ({ ...p, accountHolder: e.target.value }))}
+            required
+          />
+          <input
+            className="ui-input"
+            placeholder="은행"
+            value={refundForm.bankName}
+            onChange={(e) => setRefundForm((p) => ({ ...p, bankName: e.target.value }))}
+            required
+          />
+          <input
+            className="ui-input"
+            placeholder="환불계좌"
+            value={refundForm.accountNumber}
+            onChange={(e) => setRefundForm((p) => ({ ...p, accountNumber: e.target.value }))}
+            required
+          />
+          <button className="ui-btn-primary w-full" type="submit">
+            제출
+          </button>
+        </form>
+      ) : null}
+
+      {refundMessage ? <div className="mt-4 rounded-xl border border-sky-500/20 bg-sky-500/10 px-3 py-3 text-sm text-sky-100">{refundMessage}</div> : null}
     </div>
   )
 }
+

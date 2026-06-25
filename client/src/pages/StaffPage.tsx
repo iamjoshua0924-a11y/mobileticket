@@ -1,7 +1,18 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { applyAction, deleteTicket, fetchTickets } from '../lib/api'
+import {
+  applyAction,
+  createOnsiteTicket,
+  deleteTicket,
+  fetchSettlement,
+  fetchTickets,
+  restoreDeletedTicket,
+  updateRefundStatus
+} from '../lib/api'
 import { getStaffSecretFromSession, loadPendingActions, loadTicketCache, savePendingActions, saveTicketCache, setStaffSecretToSession } from '../lib/storage'
-import type { PendingAction, Ticket } from '../lib/types'
+import type { DeletedLog, PendingAction, Ticket } from '../lib/types'
+
+type StaffTab = 'tickets' | 'deleted' | 'refunds'
+type TicketFilter = 'all' | 'checkedin' | 'paid-unchecked'
 
 function nowId() {
   return (globalThis.crypto?.randomUUID?.() || `id_${Date.now()}_${Math.random()}`).toString()
@@ -12,16 +23,16 @@ function contains(hay: string, needle: string) {
 }
 
 function fmt(dt?: string | null) {
-  if (!dt) return null
+  if (!dt) return '-'
   const d = new Date(dt)
-  if (Number.isNaN(d.getTime())) return null
+  if (Number.isNaN(d.getTime())) return '-'
   return d.toLocaleString()
 }
 
 function relativeFrom(dt?: string | null) {
-  if (!dt) return null
+  if (!dt) return ''
   const d = new Date(dt)
-  if (Number.isNaN(d.getTime())) return null
+  if (Number.isNaN(d.getTime())) return ''
   const diff = Date.now() - d.getTime()
   const min = Math.floor(diff / 60000)
   if (min < 1) return '방금'
@@ -37,26 +48,30 @@ export default function StaffPage() {
   const [secretInput, setSecretInput] = useState('')
 
   const [tickets, setTickets] = useState<Ticket[]>([])
-  const [syncedAt, setSyncedAt] = useState<string | null>(null)
+  const [deletedLogs, setDeletedLogs] = useState<DeletedLog[]>([])
   const [pending, setPending] = useState<PendingAction[]>(() => loadPendingActions())
 
+  const [tab, setTab] = useState<StaffTab>('tickets')
+  const [filter, setFilter] = useState<TicketFilter>('all')
   const [q, setQ] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [restoreId, setRestoreId] = useState<string | null>(null)
+  const [onsiteOpen, setOnsiteOpen] = useState(false)
+  const [onsiteForm, setOnsiteForm] = useState({ name: '', headcount: 1 })
+  const [settlement, setSettlement] = useState<{ totalHeadcount: number; revenue: number } | null>(null)
+  const [showSettlement, setShowSettlement] = useState(false)
 
   const flushingRef = useRef(false)
 
-  // 초기 캐시 로드(오프라인 대비)
   useEffect(() => {
     const cache = loadTicketCache()
     if (cache?.tickets?.length) {
       setTickets(cache.tickets)
-      setSyncedAt(cache.syncedAt)
     }
   }, [])
 
-  // pending 저장
   useEffect(() => {
     savePendingActions(pending)
   }, [pending])
@@ -68,19 +83,17 @@ export default function StaffPage() {
     try {
       const data = await fetchTickets(staffSecret)
       setTickets(data.tickets)
-      setSyncedAt(data.syncedAt)
-      saveTicketCache(data)
+      setDeletedLogs(data.deletedLogs || [])
+      saveTicketCache({ tickets: data.tickets, syncedAt: data.syncedAt })
     } catch (err) {
-      setError(err instanceof Error ? err.message : '명단 불러오기 실패')
+      setError(err instanceof Error ? err.message : '불러오기 실패')
     } finally {
       setLoading(false)
     }
   }
 
   async function flushPending() {
-    if (!staffSecret) return
-    if (flushingRef.current) return
-    if (pending.length === 0) return
+    if (!staffSecret || flushingRef.current || pending.length === 0) return
     flushingRef.current = true
     try {
       let next = [...pending]
@@ -91,10 +104,7 @@ export default function StaffPage() {
           next = next.filter((a) => a.id !== action.id)
           setPending(next)
         } catch {
-          // 실패한 액션은 tryCount만 증가시키고 유지
-          next = next.map((a) =>
-            a.id === action.id ? { ...a, tryCount: (a.tryCount || 0) + 1, lastError: '동기화 실패(재시도 대기)' } : a
-          )
+          next = next.map((a) => (a.id === action.id ? { ...a, tryCount: (a.tryCount || 0) + 1, lastError: '동기화 실패(재시도 대기)' } : a))
           setPending(next)
         }
       }
@@ -104,32 +114,19 @@ export default function StaffPage() {
   }
 
   useEffect(() => {
-    // 온라인 복구 시 자동 동기화
     const onOnline = () => {
       void flushPending()
       void refresh()
     }
     window.addEventListener('online', onOnline)
     return () => window.removeEventListener('online', onOnline)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [staffSecret, pending.length])
 
-  // staffSecret가 생기면 즉시 서버에서 당겨오기
   useEffect(() => {
     if (!staffSecret) return
     void refresh()
     void flushPending()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [staffSecret])
-
-  const filtered = useMemo(() => {
-    const term = q.trim()
-    if (!term) return tickets
-    return tickets.filter((t) => {
-      const hay = `${t.bookingNo} ${t.name} ${t.phoneLast4} ${t.depositorName}`
-      return contains(hay, term)
-    })
-  }, [tickets, q])
 
   const pendingByTicket = useMemo(() => {
     const map = new Map<string, PendingAction[]>()
@@ -141,59 +138,51 @@ export default function StaffPage() {
     return map
   }, [pending])
 
-  function upsertTicketLocal(updated: Ticket) {
-    setTickets((prev) => prev.map((t) => (t._id === updated._id ? updated : t)))
-    const cache = loadTicketCache()
-    if (cache?.tickets) {
-      saveTicketCache({ tickets: cache.tickets.map((t) => (t._id === updated._id ? updated : t)), syncedAt: cache.syncedAt })
-    }
-  }
+  const filteredTickets = useMemo(() => {
+    let list = [...tickets]
+    if (filter === 'checkedin') list = list.filter((t) => t.isCheckedIn)
+    if (filter === 'paid-unchecked') list = list.filter((t) => t.isPaid && !t.isCheckedIn)
+
+    const term = q.trim()
+    if (!term) return list
+    return list.filter((t) => contains(`${t.bookingNo} ${t.name} ${t.phoneLast4} ${t.depositorName}`, term))
+  }, [tickets, q, filter])
+
+  const refundTickets = useMemo(() => tickets.filter((t) => t.refundRequest), [tickets])
 
   function removeTicketLocal(ticketId: string) {
     setTickets((prev) => prev.filter((t) => t._id !== ticketId))
     const cache = loadTicketCache()
-    if (cache?.tickets) {
-      saveTicketCache({ tickets: cache.tickets.filter((t) => t._id !== ticketId), syncedAt: cache.syncedAt })
-    }
+    if (cache?.tickets) saveTicketCache({ tickets: cache.tickets.filter((t) => t._id !== ticketId), syncedAt: cache.syncedAt })
   }
 
   function mergePending(prev: PendingAction[], action: PendingAction) {
-    // 같은 ticketId + type 액션은 하나로 합쳐서 중복 큐를 방지
-    const kept = prev.filter((a) => !(a.ticketId === action.ticketId && a.type === action.type))
-    return [...kept, action]
+    return [...prev.filter((a) => !(a.ticketId === action.ticketId && a.type === action.type)), action]
   }
 
   async function enqueueAndTry(action: PendingAction, optimistic: (t: Ticket) => Ticket) {
     setPending((prev) => mergePending(prev, action))
-    // optimistic update
     setTickets((prev) => prev.map((t) => (t._id === action.ticketId ? optimistic(t) : t)))
 
     if (!staffSecret) return
     try {
       const updated = await applyAction(staffSecret, action)
-      upsertTicketLocal(updated)
+      setTickets((prev) => prev.map((t) => (t._id === updated._id ? updated : t)))
       setPending((prev) => prev.filter((a) => a.id !== action.id))
     } catch {
-      // 실패하면 큐에 남김(오프라인/불안정 대비)
-      setPending((prev) =>
-        prev.map((a) =>
-          a.id === action.id ? { ...a, tryCount: (a.tryCount || 0) + 1, lastError: '동기화 실패(재시도 대기)' } : a
-        )
-      )
+      setPending((prev) => prev.map((a) => (a.id === action.id ? { ...a, tryCount: (a.tryCount || 0) + 1, lastError: '동기화 실패(재시도 대기)' } : a)))
     }
   }
 
   async function onDeleteTicket(ticketId: string, name: string) {
     if (!staffSecret) return
-    const ok = window.confirm(`'${name}' 예약을 삭제할까요? 이 작업은 되돌릴 수 없습니다.`)
-    if (!ok) return
-
+    if (!window.confirm(`'${name}' 예약을 삭제로그로 이동할까요?`)) return
     setDeletingId(ticketId)
-    setError(null)
     try {
       await deleteTicket(staffSecret, ticketId)
       setPending((prev) => prev.filter((a) => a.ticketId !== ticketId))
       removeTicketLocal(ticketId)
+      await refresh()
     } catch (err) {
       setError(err instanceof Error ? err.message : '예약 삭제 실패')
     } finally {
@@ -201,187 +190,210 @@ export default function StaffPage() {
     }
   }
 
+  async function onRestore(logId: string) {
+    if (!staffSecret) return
+    setRestoreId(logId)
+    try {
+      await restoreDeletedTicket(staffSecret, logId)
+      await refresh()
+      setTab('tickets')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '복구 실패')
+    } finally {
+      setRestoreId(null)
+    }
+  }
+
+  async function onCreateOnsite(e: React.FormEvent) {
+    e.preventDefault()
+    if (!staffSecret) return
+    try {
+      const ticket = await createOnsiteTicket(staffSecret, onsiteForm)
+      setTickets((prev) => [ticket, ...prev])
+      setOnsiteForm({ name: '', headcount: 1 })
+      setOnsiteOpen(false)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '현장예매 입력 실패')
+    }
+  }
+
+  async function onSettlement() {
+    if (!staffSecret) return
+    try {
+      const data = await fetchSettlement(staffSecret)
+      setSettlement(data)
+      setShowSettlement(true)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '정산 실패')
+    }
+  }
+
+  async function onRefundStatus(ticketId: string, status: 'processing' | 'completed' | 'rejected') {
+    if (!staffSecret) return
+    try {
+      const updated = await updateRefundStatus(staffSecret, ticketId, status)
+      setTickets((prev) => prev.map((t) => (t._id === updated._id ? updated : t)))
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '환불 상태 변경 실패')
+    }
+  }
+
   if (!staffSecret) {
     return (
-      <div className="mx-auto max-w-md px-5 py-10 animate-fade-up">
-        <h1 className="text-xl font-bold text-zinc-50">스태프 체크인</h1>
-        <p className="mt-2 text-sm text-zinc-400">passcode(환경변수 STAFF_SECRET)를 입력하세요.</p>
-
+      <div className="mx-auto max-w-md px-5 py-10">
         <div className="ui-card mt-6 p-4">
           <label className="text-sm text-zinc-300">passcode</label>
-          <input
-            className="ui-input mt-2"
-            value={secretInput}
-            onChange={(e) => setSecretInput(e.target.value)}
-            type="password"
-            autoComplete="off"
-          />
-          <button
-            className="ui-btn-primary mt-3 w-full"
-            onClick={() => {
-              setStaffSecretToSession(secretInput)
-              setStaffSecret(secretInput)
-            }}
-          >
+          <input className="ui-input mt-2" value={secretInput} onChange={(e) => setSecretInput(e.target.value)} type="password" autoComplete="off" />
+          <button className="ui-btn-primary mt-3 w-full" onClick={() => { setStaffSecretToSession(secretInput); setStaffSecret(secretInput) }}>
             시작
           </button>
-          <p className="mt-2 text-xs text-zinc-500">passcode는 sessionStorage에만 저장됩니다(브라우저 종료 시 삭제).</p>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="mx-auto max-w-3xl px-5 py-8 animate-fade-up">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-bold text-sky-300">입장 확인</h1>
-          <div className="mt-1 text-xs text-zinc-500">
-            {syncedAt ? `마지막 동기화: ${new Date(syncedAt).toLocaleString()}` : '캐시/오프라인 모드'}
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <div className="rounded-full border border-zinc-800 bg-zinc-900/40 px-3 py-1 text-xs text-zinc-300">
-            pending {pending.length}
-          </div>
-          <button
-            onClick={() => void flushPending()}
-            className="ui-btn-ghost px-3 py-2 text-xs"
-          >
-            큐 동기화
-          </button>
-          <button
-            onClick={() => void refresh()}
-            className="ui-btn-primary px-3 py-2 text-xs"
-          >
-            {loading ? '불러오는 중…' : '새로고침'}
-          </button>
-        </div>
+    <div className="mx-auto max-w-5xl px-5 py-8">
+      <div className="flex flex-wrap items-center gap-2">
+        <button className={tab === 'tickets' ? 'ui-btn-primary px-3 py-2 text-xs' : 'ui-btn-ghost px-3 py-2 text-xs'} onClick={() => setTab('tickets')}>예약목록</button>
+        <button className={tab === 'deleted' ? 'ui-btn-primary px-3 py-2 text-xs' : 'ui-btn-ghost px-3 py-2 text-xs'} onClick={() => setTab('deleted')}>삭제로그</button>
+        <button className={tab === 'refunds' ? 'ui-btn-primary px-3 py-2 text-xs' : 'ui-btn-ghost px-3 py-2 text-xs'} onClick={() => setTab('refunds')}>환불내역</button>
+        <button className="ui-btn-ghost px-3 py-2 text-xs" onClick={() => setOnsiteOpen((v) => !v)}>현장예매 입력</button>
+        <button className="ui-btn-ghost px-3 py-2 text-xs" onClick={() => void onSettlement()}>정산하기</button>
+        <button className="ui-btn-primary px-3 py-2 text-xs" onClick={() => void refresh()}>{loading ? '불러오는 중…' : '새로고침'}</button>
       </div>
 
-      <div className="mt-5 flex flex-col gap-2 sm:flex-row sm:items-center">
-        <input
-          className="ui-input"
-          placeholder="이름 / 예매번호 / 연락처4자리 / 입금자명"
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-        />
-        <div className="text-xs text-zinc-500">총 {filtered.length}명</div>
-      </div>
-
-      {error ? (
-        <div className="mt-4 rounded-xl border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-sm text-rose-200">
-          {error}
+      {showSettlement && settlement ? (
+        <div className="ui-card mt-4 p-4 text-sm text-zinc-100">
+          입장수익 : <span className="text-sky-300">{settlement.revenue.toLocaleString()}원</span>
+          <span className="ml-3 text-zinc-400">총 인원 {settlement.totalHeadcount}명</span>
         </div>
       ) : null}
 
-      <div className="mt-4 space-y-2">
-        {filtered.map((t) => {
-          const actions = pendingByTicket.get(t._id) || []
-          const isPending = actions.length > 0
-          const isDeleting = deletingId === t._id
-          const maxTry = actions.reduce((m, a) => Math.max(m, a.tryCount || 0), 0)
-          const lastErr = actions.find((a) => a.lastError)?.lastError
-          return (
-            <div key={t._id} className="ui-card hover-glow p-4">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                <div className="min-w-0">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <div className="text-base font-semibold text-zinc-50">{t.name}</div>
-                    <span className="rounded-full border border-zinc-800 bg-zinc-950/40 px-2 py-0.5 text-xs text-zinc-300">
-                      {t.phoneLast4}
-                    </span>
-                    <span className="rounded-full border border-zinc-800 bg-zinc-950/40 px-2 py-0.5 text-xs text-zinc-300">
-                      {t.headcount}명
-                    </span>
-                    {t.isPaid ? (
-                      <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-xs text-emerald-200">입금</span>
-                    ) : (
-                      <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-xs text-amber-200">미입금</span>
-                    )}
-                    {t.isCheckedIn ? (
-                      <span className="rounded-full bg-sky-500/15 px-2 py-0.5 text-xs text-sky-200">입장</span>
-                    ) : (
-                      <span className="rounded-full bg-zinc-700/30 px-2 py-0.5 text-xs text-zinc-200">미입장</span>
-                    )}
-                    {isPending ? (
-                      <span className="rounded-full bg-sky-500/15 px-2 py-0.5 text-xs text-sky-200">
-                        동기화 대기{maxTry ? ` · 재시도 ${maxTry}` : ''}
-                      </span>
-                    ) : null}
-                  </div>
+      {onsiteOpen ? (
+        <form onSubmit={onCreateOnsite} className="ui-card mt-4 grid gap-3 p-4 sm:grid-cols-[1fr_140px_120px]">
+          <input className="ui-input" placeholder="예매자명" value={onsiteForm.name} onChange={(e) => setOnsiteForm((p) => ({ ...p, name: e.target.value }))} required />
+          <input className="ui-input" type="number" min={1} placeholder="입장인원" value={onsiteForm.headcount} onChange={(e) => setOnsiteForm((p) => ({ ...p, headcount: Number(e.target.value) }))} required />
+          <button className="ui-btn-primary" type="submit">확인</button>
+        </form>
+      ) : null}
 
-                  <div className="mt-1 break-all font-mono text-xs text-zinc-400">{t.bookingNo}</div>
-                  <div className="mt-1 text-xs text-zinc-500">입금자명: {t.depositorName}</div>
-                  <div className="mt-2 grid gap-1 text-xs text-zinc-400">
-                    <div>
-                      예약: <span className="text-zinc-200">{fmt(t.createdAt) || '-'}</span>
-                      <span className="ml-2 text-zinc-500">{relativeFrom(t.createdAt) || ''}</span>
+      {tab === 'tickets' ? (
+        <>
+          <div className="mt-5 flex flex-col gap-2 sm:flex-row sm:items-center">
+            <input className="ui-input" placeholder="이름 / 예매번호 / 연락처4자리 / 입금자명" value={q} onChange={(e) => setQ(e.target.value)} />
+            <button className={filter === 'all' ? 'ui-btn-primary px-3 py-2 text-xs' : 'ui-btn-ghost px-3 py-2 text-xs'} onClick={() => setFilter('all')}>전체</button>
+            <button className={filter === 'checkedin' ? 'ui-btn-primary px-3 py-2 text-xs' : 'ui-btn-ghost px-3 py-2 text-xs'} onClick={() => setFilter('checkedin')}>입장인원만 모아보기</button>
+            <button className={filter === 'paid-unchecked' ? 'ui-btn-primary px-3 py-2 text-xs' : 'ui-btn-ghost px-3 py-2 text-xs'} onClick={() => setFilter('paid-unchecked')}>입금후 미입장 모아보기</button>
+          </div>
+
+          {error ? <div className="mt-4 rounded-xl border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-sm text-rose-200">{error}</div> : null}
+
+          <div className="mt-4 space-y-2">
+            {filteredTickets.map((t) => {
+              const actions = pendingByTicket.get(t._id) || []
+              const isPending = actions.length > 0
+              const isDeleting = deletingId === t._id
+              const maxTry = actions.reduce((m, a) => Math.max(m, a.tryCount || 0), 0)
+              const lastErr = actions.find((a) => a.lastError)?.lastError
+              return (
+                <div key={t._id} className="ui-card hover-glow p-4">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <div className="text-base font-semibold text-zinc-50">{t.name}</div>
+                        {t.phoneLast4 ? <span className="rounded-full border border-zinc-800 bg-zinc-950/40 px-2 py-0.5 text-xs text-zinc-300">{t.phoneLast4}</span> : null}
+                        <span className="rounded-full border border-zinc-800 bg-zinc-950/40 px-2 py-0.5 text-xs text-zinc-300">{t.headcount}명</span>
+                        {t.source === 'onsite' ? <span className="rounded-full bg-fuchsia-500/15 px-2 py-0.5 text-xs text-fuchsia-200">현장예매</span> : null}
+                        {t.isPaid ? <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-xs text-emerald-200">입금</span> : <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-xs text-amber-200">미입금</span>}
+                        {t.isCheckedIn ? <span className="rounded-full bg-sky-500/15 px-2 py-0.5 text-xs text-sky-200">입장</span> : <span className="rounded-full bg-zinc-700/30 px-2 py-0.5 text-xs text-zinc-200">미입장</span>}
+                        {isPending ? <span className="rounded-full bg-sky-500/15 px-2 py-0.5 text-xs text-sky-200">동기화 대기 · {maxTry || 0}</span> : null}
+                      </div>
+
+                      <div className="mt-1 break-all font-mono text-xs text-zinc-400">{t.bookingNo}</div>
+                      <div className="mt-1 text-xs text-zinc-500">{t.depositorName}</div>
+                      <div className="mt-2 grid gap-1 text-xs text-zinc-400">
+                        <div>예약: <span className="text-zinc-200">{fmt(t.createdAt)}</span> <span className="ml-2 text-zinc-500">{relativeFrom(t.createdAt)}</span></div>
+                        <div className="flex flex-wrap gap-x-4 gap-y-1">
+                          <span>입금: <span className="text-zinc-200">{fmt(t.paidAt)}</span></span>
+                          <span>입장: <span className="text-zinc-200">{fmt(t.checkedInAt)}</span></span>
+                        </div>
+                      </div>
+                      {t.history?.length ? (
+                        <details className="mt-3 text-xs text-zinc-400">
+                          <summary className="cursor-pointer text-sky-300">수정 전 티켓 보기 ({t.history.length})</summary>
+                          <div className="mt-2 space-y-2">
+                            {t.history.map((h, idx) => (
+                              <div key={idx} className="rounded-xl border border-sky-500/10 bg-slate-950/40 p-2">
+                                <div>{fmt(h.changedAt)} · {h.action} · {h.reason || '-'}</div>
+                                <div className="mt-1 text-zinc-500">
+                                  {h.snapshot.name || '-'} / {h.snapshot.phone || '-'} / {h.snapshot.headcount || '-'}명 / {h.snapshot.depositorName || '-'}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </details>
+                      ) : null}
+                      {lastErr ? <div className="mt-1 text-xs text-sky-200/90">{lastErr}</div> : null}
                     </div>
-                    <div className="flex flex-wrap gap-x-4 gap-y-1">
-                      <span>
-                        입금: <span className="text-zinc-200">{fmt(t.paidAt) || '-'}</span>
-                      </span>
-                      <span>
-                        입장: <span className="text-zinc-200">{fmt(t.checkedInAt) || '-'}</span>
-                      </span>
+
+                    <div className="flex shrink-0 flex-wrap gap-2">
+                      <button disabled={isPending || isDeleting} className="ui-btn-ghost px-3 py-2 text-xs" style={isPending || isDeleting ? { opacity: 0.55 } : undefined} onClick={() => void enqueueAndTry({ id: nowId(), type: 'PAYMENT', ticketId: t._id, payload: { isPaid: !t.isPaid }, createdAt: Date.now(), tryCount: 0 }, (x) => ({ ...x, isPaid: !x.isPaid }))}>입금 토글</button>
+                      <button disabled={isPending || isDeleting} className="ui-btn-primary px-3 py-2 text-xs" style={isPending || isDeleting ? { opacity: 0.55 } : undefined} onClick={() => void enqueueAndTry({ id: nowId(), type: 'CHECKIN', ticketId: t._id, payload: { isCheckedIn: !t.isCheckedIn }, createdAt: Date.now(), tryCount: 0 }, (x) => ({ ...x, isCheckedIn: !x.isCheckedIn }))}>입장 토글</button>
+                      <button disabled={isPending || isDeleting} className="ui-btn-ghost border-rose-500/20 bg-rose-500/10 px-3 py-2 text-xs text-rose-200 hover:bg-rose-500/15" style={isPending || isDeleting ? { opacity: 0.55 } : undefined} onClick={() => void onDeleteTicket(t._id, t.name)}>{isDeleting ? '삭제 중…' : '예약 삭제'}</button>
                     </div>
                   </div>
-                  {lastErr ? <div className="mt-1 text-xs text-sky-200/90">{lastErr}</div> : null}
                 </div>
+              )
+            })}
+          </div>
+        </>
+      ) : null}
 
-                <div className="flex shrink-0 flex-wrap gap-2">
-                  <button
-                    disabled={isPending || isDeleting}
-                    className="ui-btn-ghost px-3 py-2 text-xs"
-                    style={isPending || isDeleting ? { opacity: 0.55 } : undefined}
-                    onClick={() => {
-                      const action: PendingAction = {
-                        id: nowId(),
-                        type: 'PAYMENT',
-                        ticketId: t._id,
-                        payload: { isPaid: !t.isPaid },
-                        createdAt: Date.now(),
-                        tryCount: 0
-                      }
-                      void enqueueAndTry(action, (x) => ({ ...x, isPaid: !x.isPaid }))
-                    }}
-                  >
-                    입금 토글
-                  </button>
-                  <button
-                    disabled={isPending || isDeleting}
-                    className="ui-btn-primary px-3 py-2 text-xs"
-                    style={isPending || isDeleting ? { opacity: 0.55 } : undefined}
-                    onClick={() => {
-                      const action: PendingAction = {
-                        id: nowId(),
-                        type: 'CHECKIN',
-                        ticketId: t._id,
-                        payload: { isCheckedIn: !t.isCheckedIn },
-                        createdAt: Date.now(),
-                        tryCount: 0
-                      }
-                      void enqueueAndTry(action, (x) => ({ ...x, isCheckedIn: !x.isCheckedIn }))
-                    }}
-                  >
-                    입장 토글
-                  </button>
-                  <button
-                    disabled={isPending || isDeleting}
-                    className="ui-btn-ghost border-rose-500/20 bg-rose-500/10 px-3 py-2 text-xs text-rose-200 hover:bg-rose-500/15"
-                    style={isPending || isDeleting ? { opacity: 0.55 } : undefined}
-                    onClick={() => void onDeleteTicket(t._id, t.name)}
-                  >
-                    {isDeleting ? '삭제 중…' : '예약 삭제'}
-                  </button>
+      {tab === 'deleted' ? (
+        <div className="mt-4 space-y-2">
+          {deletedLogs.map((log) => (
+            <div key={log._id} className="ui-card p-4">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <div className="font-semibold text-zinc-100">{log.ticket.name}</div>
+                  <div className="mt-1 text-xs text-zinc-400">{log.ticket.bookingNo} · {fmt(log.deletedAt)}</div>
+                  <div className="mt-1 text-xs text-zinc-500">{log.ticket.headcount}명 / {log.ticket.depositorName}</div>
+                </div>
+                <button className="ui-btn-primary px-3 py-2 text-xs" disabled={restoreId === log._id} onClick={() => void onRestore(log._id)}>
+                  {restoreId === log._id ? '복구 중…' : '복구'}
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : null}
+
+      {tab === 'refunds' ? (
+        <div className="mt-4 space-y-2">
+          {refundTickets.map((t) => (
+            <div key={t._id} className="ui-card p-4">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <div className="font-semibold text-zinc-100">{t.name}</div>
+                  <div className="mt-1 text-xs text-zinc-400">{t.bookingNo}</div>
+                  <div className="mt-2 text-xs text-zinc-300">
+                    {t.refundRequest?.accountHolder} / {t.refundRequest?.bankName} / {t.refundRequest?.accountNumber}
+                  </div>
+                  <div className="mt-1 text-xs text-zinc-500">
+                    상태: {t.refundRequest?.status} / 신청: {fmt(t.refundRequest?.requestedAt)}
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <button className="ui-btn-ghost px-3 py-2 text-xs" onClick={() => void onRefundStatus(t._id, 'processing')}>처리중</button>
+                  <button className="ui-btn-primary px-3 py-2 text-xs" onClick={() => void onRefundStatus(t._id, 'completed')}>환불완료</button>
+                  <button className="ui-btn-ghost px-3 py-2 text-xs" onClick={() => void onRefundStatus(t._id, 'rejected')}>반려</button>
                 </div>
               </div>
             </div>
-          )
-        })}
-      </div>
+          ))}
+        </div>
+      ) : null}
     </div>
   )
 }

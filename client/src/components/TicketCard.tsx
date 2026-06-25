@@ -1,6 +1,6 @@
 import type { Ticket } from '../lib/types'
 
-const HERO_IMAGE = 'https://i.ibb.co/wrRqcfzj/Kakao-Talk-20260625-115249931.jpg'
+const HERO_IMAGE = 'https://i.ibb.co/wZyLCS57/20260625-142223.png'
 
 export default function TicketCard({ ticket }: { ticket: Ticket }) {
   return (
@@ -10,7 +10,7 @@ export default function TicketCard({ ticket }: { ticket: Ticket }) {
         <img
           src={HERO_IMAGE}
           alt="Summer Splash 비주얼"
-          className="hero-image max-h-[172px] w-full object-cover object-[center_18%]"
+          className="hero-image max-h-[180px] w-full object-contain bg-slate-950/70 p-2"
           loading="eager"
         />
       </div>

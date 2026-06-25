@@ -26,6 +26,7 @@ export default function IntroOverlay() {
             }}
           />
         ))}
+        <span className="intro-meteor intro-meteor-central" />
       </div>
 
       <div className="intro-warm-rise" />
@@ -38,4 +39,3 @@ export default function IntroOverlay() {
     </div>
   )
 }
-

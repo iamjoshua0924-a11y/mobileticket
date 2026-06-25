@@ -1,5 +1,6 @@
 const express = require('express');
 const Ticket = require('../models/Ticket');
+const DeletedTicket = require('../models/DeletedTicket');
 const { staffAuth } = require('../middleware/staffAuth');
 const { makeBookingNo } = require('../utils/bookingNo');
 
@@ -12,43 +13,150 @@ function escapeCsv(value) {
   return s;
 }
 
-// 관객: 예매 생성
+function cleanSnapshot(ticket) {
+  if (!ticket) return null;
+  const obj = typeof ticket.toObject === 'function' ? ticket.toObject() : { ...ticket };
+  delete obj.__v;
+  delete obj.history;
+  return obj;
+}
+
+function buildTicketPayload(body, fallback = {}) {
+  const name = String(body?.name ?? fallback.name ?? '').trim();
+  const phone = String(body?.phone ?? fallback.phone ?? '').trim();
+  const headcount = Number(body?.headcount ?? fallback.headcount ?? 1);
+  const depositorName = String(body?.depositorName ?? fallback.depositorName ?? '').trim();
+  return { name, phone, headcount, depositorName };
+}
+
+function isValidReservation(payload) {
+  return Boolean(payload.name && payload.phone && payload.depositorName && Number.isFinite(payload.headcount) && payload.headcount >= 1);
+}
+
+async function generateUniqueBookingNo() {
+  for (let i = 0; i < 5; i += 1) {
+    const bookingNo = makeBookingNo();
+    // eslint-disable-next-line no-await-in-loop
+    const exists = await Ticket.exists({ bookingNo });
+    if (!exists) return bookingNo;
+  }
+  return null;
+}
+
+function pushHistory(ticket, action, reason) {
+  ticket.history = ticket.history || [];
+  ticket.history.push({
+    action,
+    reason: reason || '',
+    snapshot: cleanSnapshot(ticket),
+    changedAt: new Date()
+  });
+}
+
+// 관객: 이름+전화번호 중복 여부 사전 확인
+router.post('/duplicate-check', async (req, res) => {
+  const { name, phone } = req.body || {};
+  if (!name || !phone) return res.status(400).json({ message: 'Invalid payload' });
+
+  const existingTicket = await Ticket.findOne({
+    name: String(name).trim(),
+    phone: String(phone).trim()
+  })
+    .sort({ updatedAt: -1 })
+    .lean();
+
+  return res.json({ exists: Boolean(existingTicket), ticket: existingTicket || null });
+});
+
+// 관객: 예매 생성 / 기존 예약 갱신
 router.post('/', async (req, res) => {
   try {
-    const { name, phone, headcount, depositorName } = req.body || {};
-    const hc = Number(headcount);
+    const mode = req.body?.mode || 'create';
+    const reason = String(req.body?.reason || '').trim();
+    const payload = buildTicketPayload(req.body);
 
-    if (!name || !phone || !depositorName || !Number.isFinite(hc) || hc < 1) {
+    if (!isValidReservation(payload)) {
       return res.status(400).json({ message: 'Invalid payload' });
     }
 
-    // bookingNo 충돌 시 재시도
-    let bookingNo;
-    for (let i = 0; i < 5; i += 1) {
-      bookingNo = makeBookingNo();
-      // eslint-disable-next-line no-await-in-loop
-      const exists = await Ticket.exists({ bookingNo });
-      if (!exists) break;
-      bookingNo = null;
+    const existingTicket = await Ticket.findOne({
+      name: payload.name,
+      phone: payload.phone
+    }).sort({ updatedAt: -1 });
+
+    if (existingTicket && mode === 'create') {
+      return res.status(409).json({
+        code: 'DUPLICATE_EXISTS',
+        message: '기존 예약내역이 있습니다.',
+        existingTicket: cleanSnapshot(existingTicket)
+      });
     }
+
+    if (existingTicket && (mode === 'replace' || mode === 'edit')) {
+      if (existingTicket.isPaid && !reason) {
+        return res.status(409).json({
+          code: 'REASON_REQUIRED',
+          message: '입금정보가 확정된 티켓 수정에는 사유가 필요합니다.',
+          existingTicket: cleanSnapshot(existingTicket)
+        });
+      }
+
+      pushHistory(existingTicket, 'updated', reason || (mode === 'replace' ? '새 정보로 갱신' : '예약 내용 수정'));
+      existingTicket.name = payload.name;
+      existingTicket.phone = payload.phone;
+      existingTicket.headcount = payload.headcount;
+      existingTicket.depositorName = payload.depositorName;
+      await existingTicket.save();
+      return res.status(200).json({ ticket: cleanSnapshot(existingTicket), action: 'updated' });
+    }
+
+    const bookingNo = await generateUniqueBookingNo();
     if (!bookingNo) return res.status(500).json({ message: 'Failed to generate booking number' });
 
     const ticket = await Ticket.create({
       bookingNo,
-      name,
-      phone,
-      headcount: hc,
-      depositorName
+      ...payload,
+      source: 'online'
     });
 
-    return res.status(201).json({ ticket });
+    pushHistory(ticket, 'created', '최초 생성');
+    await ticket.save();
+
+    return res.status(201).json({ ticket: cleanSnapshot(ticket), action: 'created' });
   } catch (err) {
-    // unique 충돌 등
     return res.status(500).json({ message: 'Server error' });
   }
 });
 
-// 관객: 예매번호로 조회(재확인)
+// 관객: 현장예매 입력(스태프)
+router.post('/onsite', staffAuth, async (req, res) => {
+  const name = String(req.body?.name || '').trim();
+  const headcount = Number(req.body?.headcount || 1);
+  if (!name || !Number.isFinite(headcount) || headcount < 1) {
+    return res.status(400).json({ message: 'Invalid payload' });
+  }
+
+  const bookingNo = await generateUniqueBookingNo();
+  if (!bookingNo) return res.status(500).json({ message: 'Failed to generate booking number' });
+
+  const ticket = await Ticket.create({
+    bookingNo,
+    name,
+    headcount,
+    phone: '',
+    phoneLast4: '',
+    depositorName: '현장예매',
+    source: 'onsite',
+    isPaid: true,
+    paidAt: new Date()
+  });
+
+  pushHistory(ticket, 'created', '현장예매 입력');
+  await ticket.save();
+  return res.status(201).json({ ticket: cleanSnapshot(ticket) });
+});
+
+// 관객: 예매번호로 조회
 router.get('/by-booking/:bookingNo', async (req, res) => {
   const { bookingNo } = req.params;
   const ticket = await Ticket.findOne({ bookingNo }).lean();
@@ -56,47 +164,151 @@ router.get('/by-booking/:bookingNo', async (req, res) => {
   return res.json({ ticket });
 });
 
+// 관객: 옵션형 조회 (이름+전화 / 예매번호)
+router.post('/lookup', async (req, res) => {
+  const mode = req.body?.mode || 'booking';
+
+  if (mode === 'booking') {
+    const bookingNo = String(req.body?.bookingNo || '').trim();
+    const ticket = await Ticket.findOne({ bookingNo }).lean();
+    if (!ticket) return res.status(404).json({ message: 'Not found' });
+    return res.json({ ticket });
+  }
+
+  const name = String(req.body?.name || '').trim();
+  const phone = String(req.body?.phone || '').trim();
+  const ticket = await Ticket.findOne({ name, phone }).sort({ updatedAt: -1 }).lean();
+  if (!ticket) return res.status(404).json({ message: 'Not found' });
+  return res.json({ ticket });
+});
+
+// 관객: 환불 신청
+router.post('/:id/refund-request', async (req, res) => {
+  const { id } = req.params;
+  const accountHolder = String(req.body?.accountHolder || '').trim();
+  const bankName = String(req.body?.bankName || '').trim();
+  const accountNumber = String(req.body?.accountNumber || '').trim();
+
+  if (!accountHolder || !bankName || !accountNumber) {
+    return res.status(400).json({ message: '환불계좌 정보가 필요합니다.' });
+  }
+
+  const ticket = await Ticket.findById(id);
+  if (!ticket) return res.status(404).json({ message: 'Not found' });
+
+  pushHistory(ticket, 'refund_requested', '예약취소/환불신청');
+  ticket.refundRequest = {
+    status: 'requested',
+    accountHolder,
+    bankName,
+    accountNumber,
+    requestedAt: new Date(),
+    note: ''
+  };
+  await ticket.save();
+
+  return res.json({
+    message: '취소되었습니다. 시일 내에 액수 확인 후 환불계좌로 입금드리겠습니다.',
+    ticket: cleanSnapshot(ticket)
+  });
+});
+
 // 스태프/관리자: 전체 조회
 router.get('/', staffAuth, async (req, res) => {
   const tickets = await Ticket.find({}).sort({ createdAt: -1 }).lean();
-  return res.json({ tickets, syncedAt: new Date().toISOString() });
+  const deletedLogs = await DeletedTicket.find({}).sort({ deletedAt: -1 }).lean();
+  return res.json({ tickets, deletedLogs, syncedAt: new Date().toISOString() });
+});
+
+router.get('/settlement', staffAuth, async (req, res) => {
+  const tickets = await Ticket.find({}).lean();
+  const totalHeadcount = tickets
+    .filter((t) => t.isPaid || t.source === 'onsite')
+    .reduce((sum, t) => sum + Number(t.headcount || 0), 0);
+
+  return res.json({
+    totalHeadcount,
+    revenue: totalHeadcount * 5000
+  });
+});
+
+// 스태프/관리자: 삭제로그 복구
+router.post('/deleted/:id/restore', staffAuth, async (req, res) => {
+  const deletedLog = await DeletedTicket.findById(req.params.id);
+  if (!deletedLog) return res.status(404).json({ message: 'Not found' });
+
+  const snapshot = { ...deletedLog.ticket };
+  delete snapshot._id;
+  delete snapshot.id;
+  delete snapshot.createdAt;
+  delete snapshot.updatedAt;
+
+  const restored = await Ticket.create(snapshot);
+  pushHistory(restored, 'restored', '삭제로그에서 복구');
+  await restored.save();
+  await deletedLog.deleteOne();
+
+  return res.json({ ticket: cleanSnapshot(restored) });
+});
+
+router.patch('/:id/refund-status', staffAuth, async (req, res) => {
+  const ticket = await Ticket.findById(req.params.id);
+  if (!ticket) return res.status(404).json({ message: 'Not found' });
+  if (!ticket.refundRequest) return res.status(400).json({ message: '환불신청 없음' });
+
+  const nextStatus = String(req.body?.status || '').trim();
+  if (!['requested', 'processing', 'completed', 'rejected'].includes(nextStatus)) {
+    return res.status(400).json({ message: 'Invalid status' });
+  }
+
+  ticket.refundRequest.status = nextStatus;
+  if (nextStatus === 'completed') ticket.refundRequest.processedAt = new Date();
+  ticket.markModified('refundRequest');
+  await ticket.save();
+  return res.json({ ticket: cleanSnapshot(ticket) });
 });
 
 // 스태프/관리자: 입금 상태 변경
 router.patch('/:id/payment', staffAuth, async (req, res) => {
-  const { id } = req.params;
-  const { isPaid } = req.body || {};
-
-  const nextPaid = Boolean(isPaid);
-  const update = { isPaid: nextPaid, paidAt: nextPaid ? new Date() : null };
-
-  const ticket = await Ticket.findByIdAndUpdate(id, update, { new: true }).lean();
+  const ticket = await Ticket.findById(req.params.id);
   if (!ticket) return res.status(404).json({ message: 'Not found' });
-  return res.json({ ticket });
+
+  const nextPaid = Boolean(req.body?.isPaid);
+  ticket.isPaid = nextPaid;
+  ticket.paidAt = nextPaid ? new Date() : null;
+  await ticket.save();
+  return res.json({ ticket: cleanSnapshot(ticket) });
 });
 
-// 스태프/관리자: 입장 처리(멱등)
+// 스태프/관리자: 입장 처리
 router.patch('/:id/checkin', staffAuth, async (req, res) => {
-  const { id } = req.params;
-  const { isCheckedIn } = req.body || {};
-
-  const nextIn = Boolean(isCheckedIn);
-  const update = { isCheckedIn: nextIn, checkedInAt: nextIn ? new Date() : null };
-
-  const ticket = await Ticket.findByIdAndUpdate(id, update, { new: true }).lean();
+  const ticket = await Ticket.findById(req.params.id);
   if (!ticket) return res.status(404).json({ message: 'Not found' });
-  return res.json({ ticket });
+
+  const nextIn = Boolean(req.body?.isCheckedIn);
+  ticket.isCheckedIn = nextIn;
+  ticket.checkedInAt = nextIn ? new Date() : null;
+  await ticket.save();
+  return res.json({ ticket: cleanSnapshot(ticket) });
 });
 
-// 스태프/관리자: 예약 삭제
+// 스태프/관리자: 예약 삭제 -> 삭제로그로 이동
 router.delete('/:id', staffAuth, async (req, res) => {
-  const { id } = req.params;
-  const ticket = await Ticket.findByIdAndDelete(id).lean();
+  const ticket = await Ticket.findById(req.params.id);
   if (!ticket) return res.status(404).json({ message: 'Not found' });
-  return res.json({ deletedId: id });
+
+  await DeletedTicket.create({
+    originalId: String(ticket._id),
+    deletedAt: new Date(),
+    deletedBy: 'staff',
+    ticket: cleanSnapshot(ticket)
+  });
+
+  await ticket.deleteOne();
+  return res.json({ deletedId: req.params.id });
 });
 
-// 스태프/관리자: CSV 내보내기(비상용 종이 명단)
+// 스태프/관리자: CSV 내보내기
 router.get('/export.csv', staffAuth, async (req, res) => {
   const tickets = await Ticket.find({}).sort({ createdAt: 1 }).lean();
   const header = [
@@ -105,6 +317,7 @@ router.get('/export.csv', staffAuth, async (req, res) => {
     'phoneLast4',
     'headcount',
     'depositorName',
+    'source',
     'isPaid',
     'isCheckedIn',
     'createdAt'
@@ -119,6 +332,7 @@ router.get('/export.csv', staffAuth, async (req, res) => {
         t.phoneLast4,
         t.headcount,
         t.depositorName,
+        t.source,
         t.isPaid,
         t.isCheckedIn,
         t.createdAt ? new Date(t.createdAt).toISOString() : ''
@@ -129,7 +343,7 @@ router.get('/export.csv', staffAuth, async (req, res) => {
   }
 
   res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-  res.setHeader('Content-Disposition', 'attachment; filename="gamma-ticketing.csv"');
+  res.setHeader('Content-Disposition', 'attachment; filename="summer-splash.csv"');
   return res.send(lines.join('\n'));
 });
 
