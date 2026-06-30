@@ -346,10 +346,6 @@ export default function StaffPage() {
         <>
           <div className="mt-5 flex flex-col gap-2 sm:flex-row sm:items-center">
             <input className="ui-input" placeholder="이름 / 예매번호 / 연락처4자리 / 입금자명" value={q} onChange={(e) => setQ(e.target.value)} />
-            <button className={filter === 'all' ? 'ui-btn-primary px-3 py-2 text-xs' : 'ui-btn-ghost px-3 py-2 text-xs'} onClick={() => setFilter('all')}>전체</button>
-            <button className={filter === 'checkedin' ? 'ui-btn-primary px-3 py-2 text-xs' : 'ui-btn-ghost px-3 py-2 text-xs'} onClick={() => setFilter('checkedin')}>입장인원만 모아보기</button>
-            <button className={filter === 'paid-unchecked' ? 'ui-btn-primary px-3 py-2 text-xs' : 'ui-btn-ghost px-3 py-2 text-xs'} onClick={() => setFilter('paid-unchecked')}>입금후 미입장 모아보기</button>
-            <button className={filter === 'unpaid' ? 'ui-btn-primary px-3 py-2 text-xs' : 'ui-btn-ghost px-3 py-2 text-xs'} onClick={() => setFilter('unpaid')}>미입금 모아보기</button>
             <select
               className="ui-input sm:max-w-[220px]"
               value={sort}
@@ -373,6 +369,12 @@ export default function StaffPage() {
               <option value="n">ref: n</option>
               <option value="none">ref: 없음</option>
             </select>
+          </div>
+          <div className="mt-2 flex flex-wrap gap-2">
+            <button className={filter === 'all' ? 'ui-btn-primary px-3 py-2 text-xs' : 'ui-btn-ghost px-3 py-2 text-xs'} onClick={() => setFilter('all')}>전체</button>
+            <button className={filter === 'checkedin' ? 'ui-btn-primary px-3 py-2 text-xs' : 'ui-btn-ghost px-3 py-2 text-xs'} onClick={() => setFilter('checkedin')}>입장인원만 모아보기</button>
+            <button className={filter === 'paid-unchecked' ? 'ui-btn-primary px-3 py-2 text-xs' : 'ui-btn-ghost px-3 py-2 text-xs'} onClick={() => setFilter('paid-unchecked')}>입금후 미입장 모아보기</button>
+            <button className={filter === 'unpaid' ? 'ui-btn-primary px-3 py-2 text-xs' : 'ui-btn-ghost px-3 py-2 text-xs'} onClick={() => setFilter('unpaid')}>미입금 모아보기</button>
           </div>
 
           {error ? <div className="mt-4 rounded-xl border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-sm text-rose-200">{error}</div> : null}
