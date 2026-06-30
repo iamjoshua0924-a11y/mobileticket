@@ -51,6 +51,9 @@ export default function ReserveSuccessPage() {
           </span>
           을 입금해주시면 예약을 확정해드리겠습니다.
         </div>
+        <div className="mt-2 text-amber-300">
+          예약후 1시간이내 입금확인이 안될시 예매가 취소됩니다.
+        </div>
         <div className="mt-2 text-zinc-300">
           <span className="font-bold text-sky-200">지정계좌</span> :{' '}
           <span className="font-semibold text-zinc-50">{DEPOSIT_BANK} {DEPOSIT_ACCOUNT_NUMBER}</span>{' '}
