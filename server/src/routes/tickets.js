@@ -23,50 +23,66 @@ function makeLoosePhoneRegex(phoneDigits) {
 }
 
 async function sendPaymentConfirmedSmsIfNeeded(ticket) {
-  if (!ticket || !ticket.isPaid || ticket.paymentConfirmedSmsSentAt) return;
+  if (!ticket || !ticket.isPaid) return { kind: 'payment_confirmed', status: 'skipped', reason: 'not_paid', message: '입금 완료 상태가 아닙니다.' };
+  if (ticket.paymentConfirmedSmsSentAt) {
+    return { kind: 'payment_confirmed', status: 'skipped', reason: 'already_sent', message: '확정 문자는 이미 발송되었습니다.' };
+  }
   const phone = normalizePhone(ticket.phone);
-  if (!phone) return;
+  if (!phone) {
+    return { kind: 'payment_confirmed', status: 'failed', reason: 'missing_phone', message: '예약자 전화번호가 없어 문자를 보낼 수 없습니다.' };
+  }
 
   const text = [
-    `[Midsummer Splash] ${ticket.name}님의 예약이 확정되었습니다! 감사합니다.`,
+    `${ticket.name}님의 예약이 확정되었습니다! 감사합니다.`,
     `예약번호: ${ticket.bookingNo}`,
     '공연일시: 7/18(토) 18:00',
     '공연장소: 상수 플렉스3호점',
     '입장: 17:00~'
   ].join('\n');
+  const subject = 'Midsummer Splash 예약확정문자';
 
-  try {
-    const result = await sendSms({ to: phone, text });
-    if (!result.ok) return;
-    ticket.paymentConfirmedSmsSentAt = new Date();
-    await ticket.save();
-  } catch (err) {
+  const result = await sendSms({ to: phone, text, subject });
+  if (!result.ok) {
     // eslint-disable-next-line no-console
-    console.error('[solapi] payment confirmed sms failed', err);
+    console.error('[solapi] payment confirmed sms failed', result.message);
+    return { kind: 'payment_confirmed', status: 'failed', reason: result.reason, message: result.message };
   }
+
+  ticket.paymentConfirmedSmsSentAt = new Date();
+  await ticket.save();
+  return { kind: 'payment_confirmed', status: 'sent', reason: result.reason, message: result.message };
 }
 
 async function sendRefundCompletedSmsIfNeeded(ticket) {
-  if (!ticket || ticket.refundRequest?.status !== 'completed' || ticket.refundCompletedSmsSentAt) return;
+  if (!ticket || ticket.refundRequest?.status !== 'completed') {
+    return { kind: 'refund_completed', status: 'skipped', reason: 'not_completed', message: '환불 완료 상태가 아닙니다.' };
+  }
+  if (ticket.refundCompletedSmsSentAt) {
+    return { kind: 'refund_completed', status: 'skipped', reason: 'already_sent', message: '환불완료 문자는 이미 발송되었습니다.' };
+  }
   const phone = normalizePhone(ticket.phone);
-  if (!phone) return;
+  if (!phone) {
+    return { kind: 'refund_completed', status: 'failed', reason: 'missing_phone', message: '예약자 전화번호가 없어 문자를 보낼 수 없습니다.' };
+  }
 
   const text = [
-    `[Midsummer Splash] ${ticket.name}님의 환불이 완료되었습니다. 감사합니다.`,
+    `${ticket.name}님의 환불이 완료되었습니다. 감사합니다.`,
     `예약번호: ${ticket.bookingNo}`,
     '공연일시: 7/18(토) 18:00',
     '공연장소: 상수 플렉스3호점'
   ].join('\n');
+  const subject = 'Midsummer Splash 환불완료문자';
 
-  try {
-    const result = await sendSms({ to: phone, text });
-    if (!result.ok) return;
-    ticket.refundCompletedSmsSentAt = new Date();
-    await ticket.save();
-  } catch (err) {
+  const result = await sendSms({ to: phone, text, subject });
+  if (!result.ok) {
     // eslint-disable-next-line no-console
-    console.error('[solapi] refund completed sms failed', err);
+    console.error('[solapi] refund completed sms failed', result.message);
+    return { kind: 'refund_completed', status: 'failed', reason: result.reason, message: result.message };
   }
+
+  ticket.refundCompletedSmsSentAt = new Date();
+  await ticket.save();
+  return { kind: 'refund_completed', status: 'sent', reason: result.reason, message: result.message };
 }
 
 function cleanSnapshot(ticket) {
@@ -355,14 +371,15 @@ router.patch('/:id/refund-status', staffAuth, requireStaffPermission('refund'), 
   }
 
   const wasCompleted = ticket.refundRequest.status === 'completed';
+  let sms = { kind: 'refund_completed', status: 'skipped', reason: 'not_triggered', message: '문자 발송 대상 상태 변경이 아닙니다.' };
   ticket.refundRequest.status = nextStatus;
   if (nextStatus === 'completed') ticket.refundRequest.processedAt = new Date();
   ticket.markModified('refundRequest');
   await ticket.save();
   if (!wasCompleted && nextStatus === 'completed') {
-    await sendRefundCompletedSmsIfNeeded(ticket);
+    sms = await sendRefundCompletedSmsIfNeeded(ticket);
   }
-  return res.json({ ticket: cleanSnapshot(ticket) });
+  return res.json({ ticket: cleanSnapshot(ticket), sms });
 });
 
 // 스태프/관리자: 입금 상태 변경
@@ -372,13 +389,14 @@ router.patch('/:id/payment', staffAuth, requireStaffPermission('payment'), async
 
   const wasPaid = Boolean(ticket.isPaid);
   const nextPaid = Boolean(req.body?.isPaid);
+  let sms = { kind: 'payment_confirmed', status: 'skipped', reason: 'not_triggered', message: '문자 발송 대상 상태 변경이 아닙니다.' };
   ticket.isPaid = nextPaid;
   ticket.paidAt = nextPaid ? new Date() : null;
   await ticket.save();
   if (!wasPaid && nextPaid) {
-    await sendPaymentConfirmedSmsIfNeeded(ticket);
+    sms = await sendPaymentConfirmedSmsIfNeeded(ticket);
   }
-  return res.json({ ticket: cleanSnapshot(ticket) });
+  return res.json({ ticket: cleanSnapshot(ticket), sms });
 });
 
 // 스태프/관리자: 입장 처리
