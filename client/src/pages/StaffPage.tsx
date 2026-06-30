@@ -13,6 +13,7 @@ import type { DeletedLog, PendingAction, Ticket } from '../lib/types'
 
 type StaffTab = 'tickets' | 'deleted' | 'refunds'
 type TicketFilter = 'all' | 'checkedin' | 'paid-unchecked'
+type RefFilter = 'all' | 'k' | 'b' | '3' | 'n' | 'none'
 
 function nowId() {
   return (globalThis.crypto?.randomUUID?.() || `id_${Date.now()}_${Math.random()}`).toString()
@@ -20,6 +21,11 @@ function nowId() {
 
 function contains(hay: string, needle: string) {
   return hay.toLowerCase().includes(needle.toLowerCase())
+}
+
+function refLabel(refCode?: Ticket['refCode']) {
+  if (refCode === 'k' || refCode === 'b' || refCode === '3' || refCode === 'n') return `ref:${refCode}`
+  return 'ref:없음'
 }
 
 function fmt(dt?: string | null) {
@@ -53,6 +59,7 @@ export default function StaffPage() {
 
   const [tab, setTab] = useState<StaffTab>('tickets')
   const [filter, setFilter] = useState<TicketFilter>('all')
+  const [refFilter, setRefFilter] = useState<RefFilter>('all')
   const [q, setQ] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -143,11 +150,15 @@ export default function StaffPage() {
     let list = [...tickets]
     if (filter === 'checkedin') list = list.filter((t) => t.isCheckedIn)
     if (filter === 'paid-unchecked') list = list.filter((t) => t.isPaid && !t.isCheckedIn)
+    if (refFilter === 'none') list = list.filter((t) => !t.refCode)
+    if (refFilter === 'k' || refFilter === 'b' || refFilter === '3' || refFilter === 'n') {
+      list = list.filter((t) => t.refCode === refFilter)
+    }
 
     const term = q.trim()
     if (!term) return list
-    return list.filter((t) => contains(`${t.bookingNo} ${t.name} ${t.phoneLast4} ${t.depositorName}`, term))
-  }, [tickets, q, filter])
+    return list.filter((t) => contains(`${t.bookingNo} ${t.name} ${t.phoneLast4} ${t.depositorName} ${t.refCode || ''}`, term))
+  }, [tickets, q, filter, refFilter])
 
   const refundTickets = useMemo(() => tickets.filter((t) => t.refundRequest), [tickets])
 
@@ -324,6 +335,14 @@ export default function StaffPage() {
             <button className={filter === 'checkedin' ? 'ui-btn-primary px-3 py-2 text-xs' : 'ui-btn-ghost px-3 py-2 text-xs'} onClick={() => setFilter('checkedin')}>입장인원만 모아보기</button>
             <button className={filter === 'paid-unchecked' ? 'ui-btn-primary px-3 py-2 text-xs' : 'ui-btn-ghost px-3 py-2 text-xs'} onClick={() => setFilter('paid-unchecked')}>입금후 미입장 모아보기</button>
           </div>
+          <div className="mt-2 flex flex-wrap gap-2">
+            <button className={refFilter === 'all' ? 'ui-btn-primary px-3 py-2 text-xs' : 'ui-btn-ghost px-3 py-2 text-xs'} onClick={() => setRefFilter('all')}>ref 전체</button>
+            <button className={refFilter === 'k' ? 'ui-btn-primary px-3 py-2 text-xs' : 'ui-btn-ghost px-3 py-2 text-xs'} onClick={() => setRefFilter('k')}>ref:k</button>
+            <button className={refFilter === 'b' ? 'ui-btn-primary px-3 py-2 text-xs' : 'ui-btn-ghost px-3 py-2 text-xs'} onClick={() => setRefFilter('b')}>ref:b</button>
+            <button className={refFilter === '3' ? 'ui-btn-primary px-3 py-2 text-xs' : 'ui-btn-ghost px-3 py-2 text-xs'} onClick={() => setRefFilter('3')}>ref:3</button>
+            <button className={refFilter === 'n' ? 'ui-btn-primary px-3 py-2 text-xs' : 'ui-btn-ghost px-3 py-2 text-xs'} onClick={() => setRefFilter('n')}>ref:n</button>
+            <button className={refFilter === 'none' ? 'ui-btn-primary px-3 py-2 text-xs' : 'ui-btn-ghost px-3 py-2 text-xs'} onClick={() => setRefFilter('none')}>ref 없음</button>
+          </div>
 
           {error ? <div className="mt-4 rounded-xl border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-sm text-rose-200">{error}</div> : null}
 
@@ -342,6 +361,7 @@ export default function StaffPage() {
                         <div className="text-base font-semibold text-zinc-50">{t.name}</div>
                         {t.phoneLast4 ? <span className="rounded-full border border-zinc-800 bg-zinc-950/40 px-2 py-0.5 text-xs text-zinc-300">{t.phoneLast4}</span> : null}
                         <span className="rounded-full border border-zinc-800 bg-zinc-950/40 px-2 py-0.5 text-xs text-zinc-300">{t.headcount}명</span>
+                        <span className="rounded-full border border-sky-500/20 bg-sky-500/10 px-2 py-0.5 text-xs text-sky-200">{refLabel(t.refCode)}</span>
                         {t.source === 'onsite' ? <span className="rounded-full bg-fuchsia-500/15 px-2 py-0.5 text-xs text-fuchsia-200">현장예매</span> : null}
                         {refundBadge(t) ? (
                           <span className={`rounded-full px-2 py-0.5 text-xs ${refundBadge(t)!.cls}`}>{refundBadge(t)!.text}</span>

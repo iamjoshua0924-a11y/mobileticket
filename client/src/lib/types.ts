@@ -28,6 +28,7 @@ export type Ticket = {
   isCheckedIn: boolean
   checkedInAt?: string | null
   source?: 'online' | 'onsite'
+  refCode?: 'k' | 'b' | '3' | 'n' | null
   refundRequest?: RefundRequest
   history?: TicketHistory[]
   createdAt: string
