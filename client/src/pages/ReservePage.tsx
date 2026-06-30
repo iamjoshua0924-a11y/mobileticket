@@ -125,7 +125,11 @@ export default function ReservePage() {
       </div>
 
       <h1 className="text-3xl font-extrabold tracking-tight text-sky-300">Midsummer Splash!</h1>
-      <p className="mt-2 text-sm text-zinc-400">사전 예매 후 예매 번호로 빠른 입장을 도와드립니다.</p>
+      <div className="mt-2 space-y-1 text-sm text-zinc-300">
+        <p>공연일시 : 7/18(토) 18:00 / 입장 17:00</p>
+        <p>티켓가격 : 인당 5,000원</p>
+      </div>
+      <p className="mt-3 text-sm text-zinc-400">사전 예매 후 예매 번호로 빠른 입장을 도와드립니다.</p>
 
       <form onSubmit={onSubmit} className="ui-card mt-8 space-y-4 p-5 hover-glow">
         <div>
