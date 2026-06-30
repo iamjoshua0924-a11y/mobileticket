@@ -152,3 +152,17 @@ export async function updateRefundStatus(
   const data = await unwrap<{ ticket: Ticket }>(res)
   return data.ticket
 }
+
+export async function assignTicketRefCode(
+  staffSecret: string,
+  ticketId: string,
+  refCode: 'k' | 'b' | '3' | 'n'
+): Promise<Ticket> {
+  const res = await fetch(`/api/tickets/${ticketId}/ref-code`, {
+    method: 'PATCH',
+    headers: jsonHeaders({ 'x-staff-secret': staffSecret }),
+    body: JSON.stringify({ refCode })
+  })
+  const data = await unwrap<{ ticket: Ticket }>(res)
+  return data.ticket
+}

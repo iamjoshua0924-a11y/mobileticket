@@ -342,6 +342,26 @@ router.patch('/:id/checkin', staffAuth, requireStaffPermission('checkin'), async
   return res.json({ ticket: cleanSnapshot(ticket) });
 });
 
+// 관리자: ref 없음 티켓에만 refCode 배정
+router.patch('/:id/ref-code', staffAuth, requireStaffPermission('assignRef'), async (req, res) => {
+  const ticket = await Ticket.findById(req.params.id);
+  if (!ticket) return res.status(404).json({ message: 'Not found' });
+
+  if (ticket.refCode) {
+    return res.status(409).json({ message: '이미 응원팀이 배정된 티켓입니다.' });
+  }
+
+  const refCodeRaw = String(req.body?.refCode || '').trim();
+  if (!['k', 'b', '3', 'n'].includes(refCodeRaw)) {
+    return res.status(400).json({ message: 'Invalid refCode' });
+  }
+
+  ticket.refCode = refCodeRaw;
+  pushHistory(ticket, 'updated', `응원팀 배정: ${refCodeRaw}`);
+  await ticket.save();
+  return res.json({ ticket: cleanSnapshot(ticket) });
+});
+
 // 스태프/관리자: 예약 삭제 -> 삭제로그로 이동
 router.delete('/:id', staffAuth, requireStaffPermission('deleteTicket'), async (req, res) => {
   const ticket = await Ticket.findById(req.params.id);

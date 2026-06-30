@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   applyAction,
+  assignTicketRefCode,
   createOnsiteTicket,
   deleteTicket,
   fetchSettlement,
@@ -21,6 +22,7 @@ type StaffPermissions = {
   payment: boolean
   refund: boolean
   deleteTicket: boolean
+  assignRef: boolean
   viewDeleted: boolean
   restoreDeleted: boolean
   exportCsv: boolean
@@ -56,6 +58,7 @@ function getStaffPermissions(secret: string | null): StaffPermissions {
       payment: false,
       refund: false,
       deleteTicket: false,
+      assignRef: false,
       viewDeleted: false,
       restoreDeleted: false,
       exportCsv: false,
@@ -69,6 +72,7 @@ function getStaffPermissions(secret: string | null): StaffPermissions {
     payment: true,
     refund: true,
     deleteTicket: true,
+    assignRef: true,
     viewDeleted: true,
     restoreDeleted: true,
     exportCsv: true,
@@ -113,6 +117,8 @@ export default function StaffPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [assigningRefId, setAssigningRefId] = useState<string | null>(null)
+  const [refPickerTicketId, setRefPickerTicketId] = useState<string | null>(null)
   const [restoreId, setRestoreId] = useState<string | null>(null)
   const [restorePreview, setRestorePreview] = useState<DeletedLog | null>(null)
   const [onsiteOpen, setOnsiteOpen] = useState(false)
@@ -363,6 +369,21 @@ export default function StaffPage() {
     }
   }
 
+  async function onAssignRef(ticketId: string, refCode: 'k' | 'b' | '3' | 'n') {
+    if (!staffSecret || !permissions.assignRef) return
+    setAssigningRefId(ticketId)
+    setError(null)
+    try {
+      const updated = await assignTicketRefCode(staffSecret, ticketId, refCode)
+      setTickets((prev) => prev.map((t) => (t._id === updated._id ? updated : t)))
+      setRefPickerTicketId(null)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '응원팀 배정 실패')
+    } finally {
+      setAssigningRefId(null)
+    }
+  }
+
   if (!staffSecret) {
     return (
       <div className="mx-auto max-w-md px-5 py-10">
@@ -458,6 +479,7 @@ export default function StaffPage() {
               const actions = pendingByTicket.get(t._id) || []
               const isPending = actions.length > 0
               const isDeleting = deletingId === t._id
+              const isAssigningRef = assigningRefId === t._id
               const maxTry = actions.reduce((m, a) => Math.max(m, a.tryCount || 0), 0)
               const lastErr = actions.find((a) => a.lastError)?.lastError
               return (
@@ -468,7 +490,17 @@ export default function StaffPage() {
                         <div className="text-base font-semibold text-zinc-50">{t.name}</div>
                         {t.phoneLast4 ? <span className="rounded-full border border-zinc-800 bg-zinc-950/40 px-2 py-0.5 text-xs text-zinc-300">{t.phoneLast4}</span> : null}
                         <span className="rounded-full border border-zinc-800 bg-zinc-950/40 px-2 py-0.5 text-xs text-zinc-300">{t.headcount}명</span>
-                        <span className="rounded-full border border-sky-500/20 bg-sky-500/10 px-2 py-0.5 text-xs text-sky-200">{refLabel(t.refCode)}</span>
+                        {permissions.assignRef && !t.refCode ? (
+                          <button
+                            type="button"
+                            className="rounded-full border border-sky-500/20 bg-sky-500/10 px-2 py-0.5 text-xs text-sky-200 hover:bg-sky-500/15"
+                            onClick={() => setRefPickerTicketId((prev) => (prev === t._id ? null : t._id))}
+                          >
+                            {refLabel(t.refCode)}
+                          </button>
+                        ) : (
+                          <span className="rounded-full border border-sky-500/20 bg-sky-500/10 px-2 py-0.5 text-xs text-sky-200">{refLabel(t.refCode)}</span>
+                        )}
                         {t.source === 'onsite' ? <span className="rounded-full bg-fuchsia-500/15 px-2 py-0.5 text-xs text-fuchsia-200">현장예매</span> : null}
                         {refundBadge(t) ? (
                           <span className={`rounded-full px-2 py-0.5 text-xs ${refundBadge(t)!.cls}`}>{refundBadge(t)!.text}</span>
@@ -479,6 +511,21 @@ export default function StaffPage() {
                       </div>
 
                       <div className="mt-1 break-all font-mono text-xs text-zinc-400">{t.bookingNo}</div>
+                      {permissions.assignRef && !t.refCode && refPickerTicketId === t._id ? (
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          {(['k', 'b', '3', 'n'] as const).map((refCode) => (
+                            <button
+                              key={refCode}
+                              type="button"
+                              disabled={isAssigningRef}
+                              className="ui-btn-ghost px-3 py-2 text-xs"
+                              onClick={() => void onAssignRef(t._id, refCode)}
+                            >
+                              {isAssigningRef ? '배정 중…' : `ref:${refCode} 배정`}
+                            </button>
+                          ))}
+                        </div>
+                      ) : null}
                       <div className="mt-1 text-xs text-zinc-500">{t.depositorName}</div>
                       <div className="mt-2 grid gap-1 text-xs text-zinc-400">
                         <div>예약: <span className="text-zinc-200">{fmt(t.createdAt)}</span> <span className="ml-2 text-zinc-500">{relativeFrom(t.createdAt)}</span></div>
