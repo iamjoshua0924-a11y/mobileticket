@@ -187,6 +187,9 @@ export default function ReservePage() {
         <button type="submit" disabled={loading} className="ui-btn-primary w-full">
           {loading ? '예매 처리 중…' : '예매하기'}
         </button>
+        <Link to="/reserve/lookup" className="ui-btn-ghost w-full">
+          예매확인
+        </Link>
       </form>
 
       {duplicateFlow !== 'none' && duplicateTicket ? (

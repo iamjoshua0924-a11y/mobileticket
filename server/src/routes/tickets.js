@@ -27,7 +27,13 @@ async function sendPaymentConfirmedSmsIfNeeded(ticket) {
   const phone = normalizePhone(ticket.phone);
   if (!phone) return;
 
-  const text = `[Midsummer Splash] ${ticket.name}님의 예약이 확정되었습니다! 감사합니다.`;
+  const text = [
+    `[Midsummer Splash] ${ticket.name}님의 예약이 확정되었습니다! 감사합니다.`,
+    `예약번호: ${ticket.bookingNo}`,
+    '공연일시: 7/18(토) 18:00',
+    '공연장소: 상수 플렉스3호점',
+    '입장: 17:00~'
+  ].join('\n');
 
   try {
     const result = await sendSms({ to: phone, text });
@@ -45,7 +51,12 @@ async function sendRefundCompletedSmsIfNeeded(ticket) {
   const phone = normalizePhone(ticket.phone);
   if (!phone) return;
 
-  const text = `[Midsummer Splash] ${ticket.name}님의 환불이 완료되었습니다. 감사합니다.`;
+  const text = [
+    `[Midsummer Splash] ${ticket.name}님의 환불이 완료되었습니다. 감사합니다.`,
+    `예약번호: ${ticket.bookingNo}`,
+    '공연일시: 7/18(토) 18:00',
+    '공연장소: 상수 플렉스3호점'
+  ].join('\n');
 
   try {
     const result = await sendSms({ to: phone, text });

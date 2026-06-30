@@ -1,4 +1,4 @@
-import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { useState } from 'react'
 import TicketCard from '../components/TicketCard'
 import { requestRefund } from '../lib/api'
@@ -100,10 +100,6 @@ export default function ReserveSuccessPage() {
 
       {error ? <div className="mt-4 rounded-xl border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-sm text-rose-200">{error}</div> : null}
       {refundMessage ? <div className="mt-4 rounded-xl border border-sky-500/20 bg-sky-500/10 px-3 py-3 text-sm text-sky-100">{refundMessage}</div> : null}
-
-      <div className="mt-6 text-xs text-zinc-500">
-        예매 완료 화면을 놓쳤다면 <Link className="ui-link" to="/reserve/lookup">예매번호로 조회</Link> 할 수 있어요.
-      </div>
 
       {showPaymentNotice && ticket ? (
         <div className="fixed inset-0 z-50 grid place-items-center bg-black/70 p-5">
