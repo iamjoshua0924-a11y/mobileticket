@@ -15,6 +15,7 @@ export default function ReserveLookupPage() {
   const [refundOpen, setRefundOpen] = useState(false)
   const [refundForm, setRefundForm] = useState({ accountHolder: '', bankName: '', accountNumber: '' })
   const [refundMessage, setRefundMessage] = useState<string | null>(null)
+  const [showPaidNotice, setShowPaidNotice] = useState(false)
 
   async function onLookup(e: React.FormEvent) {
     e.preventDefault()
@@ -29,6 +30,7 @@ export default function ReserveLookupPage() {
           ? await lookupTicket({ mode: 'booking', bookingNo: form.bookingNo.trim().toUpperCase() })
           : await lookupTicket({ mode: 'person', name: form.name.trim(), phone: normalizedPhone })
       setTicket(t)
+      setShowPaidNotice(Boolean(t.isPaid))
     } catch (err) {
       setError(err instanceof Error ? err.message : '조회 실패')
     } finally {
@@ -174,6 +176,23 @@ export default function ReserveLookupPage() {
       ) : null}
 
       {refundMessage ? <div className="mt-4 rounded-xl border border-sky-500/20 bg-sky-500/10 px-3 py-3 text-sm text-sky-100">{refundMessage}</div> : null}
+
+      {showPaidNotice && ticket ? (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-black/70 p-5">
+          <div className="ui-card w-full max-w-md p-5">
+            <div className="text-base font-semibold text-zinc-50">입금 완료 티켓입니다! 감사합니다.</div>
+            <div className="mt-3 space-y-1 text-sm leading-6 text-zinc-200">
+              <div>공연일시: 7/18(토)</div>
+              <div>공연장소: 상수 플렉스3호점</div>
+              <div>입장: 17:00~</div>
+              <div>공연: 18:00~</div>
+            </div>
+            <button className="ui-btn-primary mt-4 w-full" onClick={() => setShowPaidNotice(false)}>
+              확인
+            </button>
+          </div>
+        </div>
+      ) : null}
     </div>
   )
 }

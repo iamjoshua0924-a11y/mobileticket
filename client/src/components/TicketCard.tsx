@@ -1,7 +1,7 @@
 import type { Ticket } from '../lib/types'
 
 const HERO_IMAGE = 'https://i.ibb.co/wZyLCS57/20260625-142223.png'
-const LOOP_TEXT = 'Midsummer Splash!'
+const LOOP_TEXT = 'Midsummer Splash! ✦'
 
 export default function TicketCard({ ticket }: { ticket: Ticket }) {
   const paid = Boolean(ticket.isPaid)
