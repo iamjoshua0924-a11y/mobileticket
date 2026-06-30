@@ -2,20 +2,15 @@ import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useState } from 'react'
 import TicketCard from '../components/TicketCard'
 import { requestRefund } from '../lib/api'
+import { DEPOSIT_ACCOUNT_HOLDER, DEPOSIT_ACCOUNT_NUMBER, DEPOSIT_BANK, PRICE_PER_PERSON } from '../lib/deposit'
 import type { Ticket } from '../lib/types'
-
-const PRICE_PER_PERSON = 5000
-// TODO: 추후 사용자가 실제 값으로 교체
-const DEPOSIT_BANK = '토스뱅크'
-const DEPOSIT_ACCOUNT_NUMBER = '1000-4372-2266'
-const DEPOSIT_ACCOUNT_HOLDER = '김종환'
 
 export default function ReserveSuccessPage() {
   const nav = useNavigate()
   const loc = useLocation()
   const ticket = (loc.state as { ticket?: Ticket } | null)?.ticket
 
-  const [showPaymentNotice, setShowPaymentNotice] = useState(Boolean(ticket))
+  const [showPaymentNotice, setShowPaymentNotice] = useState(Boolean(ticket && !ticket.isPaid))
   const [refundOpen, setRefundOpen] = useState(false)
   const [refundForm, setRefundForm] = useState({ accountHolder: '', bankName: '', accountNumber: '' })
   const [refundMessage, setRefundMessage] = useState<string | null>(null)
@@ -43,38 +38,42 @@ export default function ReserveSuccessPage() {
         </button>
       </div>
 
-      <div className="mt-3 ui-card p-4 text-sm text-zinc-200">
-        <div className="font-semibold text-zinc-50">예약이 완료되었습니다.</div>
-        <div className="mt-2 text-zinc-300">
-          지정계좌로{' '}
-          <span className="font-bold text-sky-200">
-            {(ticket ? ticket.headcount * PRICE_PER_PERSON : 0).toLocaleString()}원
-          </span>
-          을 입금해주시면 예약을 확정해드리겠습니다.
-        </div>
-        <div className="mt-2 text-amber-300">
-          예약후 1시간이내 입금확인이 안될시 예매가 취소됩니다.
-        </div>
-        <div className="mt-2 text-zinc-300">
-          <span className="font-bold text-sky-200">지정계좌</span> :{' '}
-          <span className="font-semibold text-zinc-50">{DEPOSIT_BANK} {DEPOSIT_ACCOUNT_NUMBER}</span>{' '}
-          <span className="text-zinc-400">예금주 {DEPOSIT_ACCOUNT_HOLDER}</span>
-        </div>
+      {ticket && !ticket.isPaid ? (
+        <div className="mt-3 ui-card p-4 text-sm text-zinc-200">
+          <div className="font-semibold text-zinc-50">예약이 완료되었습니다.</div>
+          <div className="mt-2 text-zinc-300">
+            지정계좌로{' '}
+            <span className="font-bold text-sky-200">
+              {(ticket.headcount * PRICE_PER_PERSON).toLocaleString()}원
+            </span>
+            을 입금해주시면 예약을 확정해드리겠습니다.
+          </div>
+          <div className="mt-2 text-amber-300">
+            예약후 1시간이내 입금확인이 안될시 예매가 취소됩니다.
+          </div>
+          <div className="mt-2 text-zinc-300">
+            <span className="font-bold text-sky-200">지정계좌</span> :{' '}
+            <span className="font-semibold text-zinc-50">
+              {DEPOSIT_BANK} {DEPOSIT_ACCOUNT_NUMBER}
+            </span>{' '}
+            <span className="text-zinc-400">예금주 {DEPOSIT_ACCOUNT_HOLDER}</span>
+          </div>
 
-        <button
-          type="button"
-          className="ui-btn-primary mt-3 w-full"
-          onClick={async () => {
-            try {
-              await navigator.clipboard.writeText(DEPOSIT_ACCOUNT_NUMBER)
-            } catch {
-              // ignore
-            }
-          }}
-        >
-          계좌번호 복사하기
-        </button>
-      </div>
+          <button
+            type="button"
+            className="ui-btn-primary mt-3 w-full"
+            onClick={async () => {
+              try {
+                await navigator.clipboard.writeText(DEPOSIT_ACCOUNT_NUMBER)
+              } catch {
+                // ignore
+              }
+            }}
+          >
+            계좌번호 복사하기
+          </button>
+        </div>
+      ) : null}
 
       <div className="mt-6">{ticket ? <TicketCard ticket={ticket} /> : <EmptyState />}</div>
 

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import TicketCard from '../components/TicketCard'
 import { lookupTicket, requestRefund } from '../lib/api'
+import { DEPOSIT_ACCOUNT_HOLDER, DEPOSIT_ACCOUNT_NUMBER, DEPOSIT_BANK, PRICE_PER_PERSON } from '../lib/deposit'
 import type { Ticket } from '../lib/types'
 
 type LookupMode = 'person' | 'booking'
@@ -99,6 +100,38 @@ export default function ReserveLookupPage() {
           {loading ? '조회 중…' : '조회하기'}
         </button>
       </form>
+
+      {ticket && !ticket.isPaid ? (
+        <div className="mt-4 ui-card p-4 text-sm text-zinc-200">
+          <div className="font-semibold text-zinc-50">입금 안내</div>
+          <div className="mt-2 text-zinc-300">
+            지정계좌로{' '}
+            <span className="font-bold text-sky-200">{(ticket.headcount * PRICE_PER_PERSON).toLocaleString()}원</span>
+            을 입금해주시면 예약을 확정해드리겠습니다.
+          </div>
+          <div className="mt-2 text-amber-300">예약후 1시간이내 입금확인이 안될시 예매가 취소됩니다.</div>
+          <div className="mt-2 text-zinc-300">
+            <span className="font-bold text-sky-200">지정계좌</span> :{' '}
+            <span className="font-semibold text-zinc-50">
+              {DEPOSIT_BANK} {DEPOSIT_ACCOUNT_NUMBER}
+            </span>{' '}
+            <span className="text-zinc-400">예금주 {DEPOSIT_ACCOUNT_HOLDER}</span>
+          </div>
+          <button
+            type="button"
+            className="ui-btn-primary mt-3 w-full"
+            onClick={async () => {
+              try {
+                await navigator.clipboard.writeText(DEPOSIT_ACCOUNT_NUMBER)
+              } catch {
+                // ignore
+              }
+            }}
+          >
+            계좌번호 복사하기
+          </button>
+        </div>
+      ) : null}
 
       <div className="mt-6">{ticket ? <TicketCard ticket={ticket} /> : null}</div>
 
