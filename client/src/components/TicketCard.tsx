@@ -1,6 +1,7 @@
 import type { Ticket } from '../lib/types'
 
 const HERO_IMAGE = 'https://i.ibb.co/wZyLCS57/20260625-142223.png'
+const LOOP_TEXT = 'Midsummer Splash!'
 
 export default function TicketCard({ ticket }: { ticket: Ticket }) {
   const paid = Boolean(ticket.isPaid)
@@ -56,6 +57,27 @@ export default function TicketCard({ ticket }: { ticket: Ticket }) {
         <div>캡쳐화면은 인정되지 않습니다.</div>
         <div className="text-zinc-500">입금 확인된 티켓만 입장을 도와드립니다</div>
       </div>
+
+      {paid ? (
+        <div className="ticket-neon-marquee mt-4">
+          <div className="ticket-neon-marquee__track">
+            <span>{LOOP_TEXT}</span>
+            <span>{LOOP_TEXT}</span>
+            <span>{LOOP_TEXT}</span>
+            <span>{LOOP_TEXT}</span>
+            <span>{LOOP_TEXT}</span>
+            <span>{LOOP_TEXT}</span>
+          </div>
+          <div className="ticket-neon-marquee__track" aria-hidden="true">
+            <span>{LOOP_TEXT}</span>
+            <span>{LOOP_TEXT}</span>
+            <span>{LOOP_TEXT}</span>
+            <span>{LOOP_TEXT}</span>
+            <span>{LOOP_TEXT}</span>
+            <span>{LOOP_TEXT}</span>
+          </div>
+        </div>
+      ) : null}
     </div>
   )
 }

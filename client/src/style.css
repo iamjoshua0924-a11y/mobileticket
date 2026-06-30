@@ -326,13 +326,83 @@ body {
     floatSoft 5.8s ease-in-out 0.82s infinite;
 }
 
+.ticket-neon-marquee {
+  position: relative;
+  display: flex;
+  overflow: hidden;
+  gap: 0;
+  border-radius: 999px;
+  border: 1px solid rgba(56, 189, 248, 0.28);
+  background:
+    linear-gradient(90deg, rgba(8, 47, 73, 0.74), rgba(12, 74, 110, 0.42), rgba(8, 47, 73, 0.74));
+  box-shadow:
+    inset 0 0 18px rgba(34, 211, 238, 0.12),
+    0 0 18px rgba(14, 165, 233, 0.12),
+    0 0 34px rgba(14, 165, 233, 0.08);
+}
+
+.ticket-neon-marquee::before,
+.ticket-neon-marquee::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 42px;
+  z-index: 1;
+  pointer-events: none;
+}
+
+.ticket-neon-marquee::before {
+  left: 0;
+  background: linear-gradient(90deg, rgba(2, 6, 23, 0.92), rgba(2, 6, 23, 0));
+}
+
+.ticket-neon-marquee::after {
+  right: 0;
+  background: linear-gradient(270deg, rgba(2, 6, 23, 0.92), rgba(2, 6, 23, 0));
+}
+
+.ticket-neon-marquee__track {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 1.5rem;
+  min-width: max-content;
+  padding: 0.7rem 0;
+  animation: neonTickerLeft 14s linear infinite;
+}
+
+.ticket-neon-marquee__track span {
+  flex: 0 0 auto;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: rgba(186, 230, 253, 0.96);
+  text-shadow:
+    0 0 6px rgba(125, 211, 252, 0.92),
+    0 0 14px rgba(56, 189, 248, 0.48),
+    0 0 24px rgba(14, 165, 233, 0.3);
+  white-space: nowrap;
+}
+
+@keyframes neonTickerLeft {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-100%);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .intro-overlay,
   .animate-site-reveal,
   .animate-fade-up,
   .animate-float-soft,
   .animate-pulse-glow,
-  .ticket-print-in {
+  .ticket-print-in,
+  .ticket-neon-marquee__track {
     animation: none !important;
   }
 
