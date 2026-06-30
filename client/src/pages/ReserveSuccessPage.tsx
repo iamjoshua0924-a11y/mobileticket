@@ -6,9 +6,9 @@ import type { Ticket } from '../lib/types'
 
 const PRICE_PER_PERSON = 5000
 // TODO: 추후 사용자가 실제 값으로 교체
-const DEPOSIT_BANK = '00은행'
-const DEPOSIT_ACCOUNT_NUMBER = '000-0000-0000'
-const DEPOSIT_ACCOUNT_HOLDER = '000'
+const DEPOSIT_BANK = '토스뱅크'
+const DEPOSIT_ACCOUNT_NUMBER = '1000-4372-2266'
+const DEPOSIT_ACCOUNT_HOLDER = '김종환'
 
 export default function ReserveSuccessPage() {
   const nav = useNavigate()
