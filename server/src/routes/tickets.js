@@ -3,6 +3,7 @@ const Ticket = require('../models/Ticket');
 const DeletedTicket = require('../models/DeletedTicket');
 const { staffAuth, requireStaffPermission } = require('../middleware/staffAuth');
 const { makeBookingNo } = require('../utils/bookingNo');
+const { normalizePhone, sendSms } = require('../utils/solapi');
 
 const router = express.Router();
 
@@ -13,10 +14,6 @@ function escapeCsv(value) {
   return s;
 }
 
-function normalizePhone(value) {
-  return String(value || '').replace(/\D/g, '');
-}
-
 function makeLoosePhoneRegex(phoneDigits) {
   const digits = normalizePhone(phoneDigits);
   if (!digits) return null;
@@ -25,11 +22,49 @@ function makeLoosePhoneRegex(phoneDigits) {
   return new RegExp(`^\\D*${digits.split('').join('\\D*')}\\D*$`);
 }
 
+async function sendPaymentConfirmedSmsIfNeeded(ticket) {
+  if (!ticket || !ticket.isPaid || ticket.paymentConfirmedSmsSentAt) return;
+  const phone = normalizePhone(ticket.phone);
+  if (!phone) return;
+
+  const text = `[Midsummer Splash] ${ticket.name}님의 예약이 확정되었습니다! 감사합니다.`;
+
+  try {
+    const result = await sendSms({ to: phone, text });
+    if (!result.ok) return;
+    ticket.paymentConfirmedSmsSentAt = new Date();
+    await ticket.save();
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error('[solapi] payment confirmed sms failed', err);
+  }
+}
+
+async function sendRefundCompletedSmsIfNeeded(ticket) {
+  if (!ticket || ticket.refundRequest?.status !== 'completed' || ticket.refundCompletedSmsSentAt) return;
+  const phone = normalizePhone(ticket.phone);
+  if (!phone) return;
+
+  const text = `[Midsummer Splash] ${ticket.name}님의 환불이 완료되었습니다. 감사합니다.`;
+
+  try {
+    const result = await sendSms({ to: phone, text });
+    if (!result.ok) return;
+    ticket.refundCompletedSmsSentAt = new Date();
+    await ticket.save();
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error('[solapi] refund completed sms failed', err);
+  }
+}
+
 function cleanSnapshot(ticket) {
   if (!ticket) return null;
   const obj = typeof ticket.toObject === 'function' ? ticket.toObject() : { ...ticket };
   delete obj.__v;
   delete obj.history;
+  delete obj.paymentConfirmedSmsSentAt;
+  delete obj.refundCompletedSmsSentAt;
   // 레퍼럴은 스태프 일반 화면에서 노출하지 않음(정산에서만 집계)
   delete obj.refCode;
   return obj;
@@ -308,10 +343,14 @@ router.patch('/:id/refund-status', staffAuth, requireStaffPermission('refund'), 
     return res.status(400).json({ message: 'Invalid status' });
   }
 
+  const wasCompleted = ticket.refundRequest.status === 'completed';
   ticket.refundRequest.status = nextStatus;
   if (nextStatus === 'completed') ticket.refundRequest.processedAt = new Date();
   ticket.markModified('refundRequest');
   await ticket.save();
+  if (!wasCompleted && nextStatus === 'completed') {
+    await sendRefundCompletedSmsIfNeeded(ticket);
+  }
   return res.json({ ticket: cleanSnapshot(ticket) });
 });
 
@@ -320,10 +359,14 @@ router.patch('/:id/payment', staffAuth, requireStaffPermission('payment'), async
   const ticket = await Ticket.findById(req.params.id);
   if (!ticket) return res.status(404).json({ message: 'Not found' });
 
+  const wasPaid = Boolean(ticket.isPaid);
   const nextPaid = Boolean(req.body?.isPaid);
   ticket.isPaid = nextPaid;
   ticket.paidAt = nextPaid ? new Date() : null;
   await ticket.save();
+  if (!wasPaid && nextPaid) {
+    await sendPaymentConfirmedSmsIfNeeded(ticket);
+  }
   return res.json({ ticket: cleanSnapshot(ticket) });
 });
 

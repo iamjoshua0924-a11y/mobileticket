@@ -42,6 +42,8 @@ const TicketSchema = new mongoose.Schema(
     source: { type: String, enum: ['online', 'onsite'], default: 'online' },
     // 레퍼럴 코드: k(키라키라윤) / b(비상대책회의) / 3(3061) / n(나나시)
     refCode: { type: String, enum: ['k', 'b', '3', 'n', null], default: null, index: true },
+    paymentConfirmedSmsSentAt: { type: Date },
+    refundCompletedSmsSentAt: { type: Date },
     refundRequest: { type: RefundRequestSchema },
     history: { type: [TicketHistorySchema], default: [] }
   },
