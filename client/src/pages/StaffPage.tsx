@@ -51,7 +51,7 @@ function getStaffPermissions(secret: string | null): StaffPermissions {
       viewDeleted: false,
       restoreDeleted: false,
       exportCsv: false,
-      settlement: false
+      settlement: true
     }
   }
 

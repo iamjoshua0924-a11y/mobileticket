@@ -11,7 +11,7 @@ const STAFF_ACCESS = {
       viewDeleted: false,
       restoreDeleted: false,
       exportCsv: false,
-      settlement: false
+      settlement: true
     }
   },
   '0924': {
