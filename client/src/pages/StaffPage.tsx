@@ -12,7 +12,7 @@ import { getStaffSecretFromSession, loadPendingActions, loadTicketCache, savePen
 import type { DeletedLog, PendingAction, Ticket } from '../lib/types'
 
 type StaffTab = 'tickets' | 'deleted' | 'refunds'
-type TicketFilter = 'all' | 'checkedin' | 'paid-unchecked'
+type TicketFilter = 'all' | 'checkedin' | 'paid-unchecked' | 'unpaid'
 type RefFilter = 'all' | 'k' | 'b' | '3' | 'n' | 'none'
 type TicketSort = 'recent' | 'name-asc' | 'name-desc'
 
@@ -152,6 +152,7 @@ export default function StaffPage() {
     let list = [...tickets]
     if (filter === 'checkedin') list = list.filter((t) => t.isCheckedIn)
     if (filter === 'paid-unchecked') list = list.filter((t) => t.isPaid && !t.isCheckedIn)
+    if (filter === 'unpaid') list = list.filter((t) => !t.isPaid)
     if (refFilter === 'none') list = list.filter((t) => !t.refCode)
     if (refFilter === 'k' || refFilter === 'b' || refFilter === '3' || refFilter === 'n') {
       list = list.filter((t) => t.refCode === refFilter)
@@ -348,6 +349,7 @@ export default function StaffPage() {
             <button className={filter === 'all' ? 'ui-btn-primary px-3 py-2 text-xs' : 'ui-btn-ghost px-3 py-2 text-xs'} onClick={() => setFilter('all')}>전체</button>
             <button className={filter === 'checkedin' ? 'ui-btn-primary px-3 py-2 text-xs' : 'ui-btn-ghost px-3 py-2 text-xs'} onClick={() => setFilter('checkedin')}>입장인원만 모아보기</button>
             <button className={filter === 'paid-unchecked' ? 'ui-btn-primary px-3 py-2 text-xs' : 'ui-btn-ghost px-3 py-2 text-xs'} onClick={() => setFilter('paid-unchecked')}>입금후 미입장 모아보기</button>
+            <button className={filter === 'unpaid' ? 'ui-btn-primary px-3 py-2 text-xs' : 'ui-btn-ghost px-3 py-2 text-xs'} onClick={() => setFilter('unpaid')}>미입금 모아보기</button>
             <select
               className="ui-input sm:max-w-[220px]"
               value={sort}
@@ -358,14 +360,19 @@ export default function StaffPage() {
               <option value="name-asc">정렬: 이름 가나다순(오름차)</option>
               <option value="name-desc">정렬: 이름 가나다순(내림차)</option>
             </select>
-          </div>
-          <div className="mt-2 flex flex-wrap gap-2">
-            <button className={refFilter === 'all' ? 'ui-btn-primary px-3 py-2 text-xs' : 'ui-btn-ghost px-3 py-2 text-xs'} onClick={() => setRefFilter('all')}>ref 전체</button>
-            <button className={refFilter === 'k' ? 'ui-btn-primary px-3 py-2 text-xs' : 'ui-btn-ghost px-3 py-2 text-xs'} onClick={() => setRefFilter('k')}>ref:k</button>
-            <button className={refFilter === 'b' ? 'ui-btn-primary px-3 py-2 text-xs' : 'ui-btn-ghost px-3 py-2 text-xs'} onClick={() => setRefFilter('b')}>ref:b</button>
-            <button className={refFilter === '3' ? 'ui-btn-primary px-3 py-2 text-xs' : 'ui-btn-ghost px-3 py-2 text-xs'} onClick={() => setRefFilter('3')}>ref:3</button>
-            <button className={refFilter === 'n' ? 'ui-btn-primary px-3 py-2 text-xs' : 'ui-btn-ghost px-3 py-2 text-xs'} onClick={() => setRefFilter('n')}>ref:n</button>
-            <button className={refFilter === 'none' ? 'ui-btn-primary px-3 py-2 text-xs' : 'ui-btn-ghost px-3 py-2 text-xs'} onClick={() => setRefFilter('none')}>ref 없음</button>
+            <select
+              className="ui-input sm:max-w-[180px]"
+              value={refFilter}
+              onChange={(e) => setRefFilter(e.target.value as RefFilter)}
+              aria-label="ref 필터"
+            >
+              <option value="all">ref: 전체</option>
+              <option value="k">ref: k</option>
+              <option value="b">ref: b</option>
+              <option value="3">ref: 3</option>
+              <option value="n">ref: n</option>
+              <option value="none">ref: 없음</option>
+            </select>
           </div>
 
           {error ? <div className="mt-4 rounded-xl border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-sm text-rose-200">{error}</div> : null}
