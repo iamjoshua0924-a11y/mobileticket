@@ -22,10 +22,11 @@ export default function ReserveLookupPage() {
     setTicket(null)
     setLoading(true)
     try {
+      const normalizedPhone = form.phone.replace(/\D/g, '')
       const t =
         mode === 'booking'
           ? await lookupTicket({ mode: 'booking', bookingNo: form.bookingNo.trim().toUpperCase() })
-          : await lookupTicket({ mode: 'person', name: form.name.trim(), phone: form.phone.trim() })
+          : await lookupTicket({ mode: 'person', name: form.name.trim(), phone: normalizedPhone })
       setTicket(t)
     } catch (err) {
       setError(err instanceof Error ? err.message : '조회 실패')
@@ -143,4 +144,3 @@ export default function ReserveLookupPage() {
     </div>
   )
 }
-

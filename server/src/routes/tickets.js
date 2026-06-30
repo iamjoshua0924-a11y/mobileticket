@@ -13,6 +13,18 @@ function escapeCsv(value) {
   return s;
 }
 
+function normalizePhone(value) {
+  return String(value || '').replace(/\D/g, '');
+}
+
+function makeLoosePhoneRegex(phoneDigits) {
+  const digits = normalizePhone(phoneDigits);
+  if (!digits) return null;
+  // 각 숫자 사이에 하이픈/공백 등 비숫자 문자가 섞여 있어도 매칭되도록 처리
+  // 예: 01012345678 -> ^\D*0\D*1\D*0\D*1...8\D*$
+  return new RegExp(`^\\D*${digits.split('').join('\\D*')}\\D*$`);
+}
+
 function cleanSnapshot(ticket) {
   if (!ticket) return null;
   const obj = typeof ticket.toObject === 'function' ? ticket.toObject() : { ...ticket };
@@ -34,7 +46,8 @@ function buildTicketPayload(body, fallback = {}) {
 }
 
 function isValidReservation(payload) {
-  return Boolean(payload.name && payload.phone && payload.depositorName && Number.isFinite(payload.headcount) && payload.headcount >= 1);
+  const phoneDigits = normalizePhone(payload.phone);
+  return Boolean(payload.name && phoneDigits && payload.depositorName && Number.isFinite(payload.headcount) && payload.headcount >= 1);
 }
 
 async function generateUniqueBookingNo() {
@@ -62,9 +75,14 @@ router.post('/duplicate-check', async (req, res) => {
   const { name, phone } = req.body || {};
   if (!name || !phone) return res.status(400).json({ message: 'Invalid payload' });
 
+  const nameTrim = String(name).trim();
+  const phoneTrim = String(phone).trim();
+  const phoneRe = makeLoosePhoneRegex(phoneTrim);
+  if (!phoneRe) return res.status(400).json({ message: 'Invalid payload' });
+
   const existingTicket = await Ticket.findOne({
-    name: String(name).trim(),
-    phone: String(phone).trim()
+    name: nameTrim,
+    phone: { $regex: phoneRe }
   })
     .sort({ updatedAt: -1 })
     .lean();
@@ -83,9 +101,12 @@ router.post('/', async (req, res) => {
       return res.status(400).json({ message: 'Invalid payload' });
     }
 
+    const phoneRe = makeLoosePhoneRegex(payload.phone);
+    if (!phoneRe) return res.status(400).json({ message: 'Invalid payload' });
+
     const existingTicket = await Ticket.findOne({
       name: payload.name,
-      phone: payload.phone
+      phone: { $regex: phoneRe }
     }).sort({ updatedAt: -1 });
 
     if (existingTicket && mode === 'create') {
@@ -187,7 +208,9 @@ router.post('/lookup', async (req, res) => {
 
   const name = String(req.body?.name || '').trim();
   const phone = String(req.body?.phone || '').trim();
-  const ticket = await Ticket.findOne({ name, phone }).sort({ updatedAt: -1 }).lean();
+  const phoneRe = makeLoosePhoneRegex(phone);
+  if (!phoneRe) return res.status(400).json({ message: 'Invalid payload' });
+  const ticket = await Ticket.findOne({ name, phone: { $regex: phoneRe } }).sort({ updatedAt: -1 }).lean();
   if (!ticket) return res.status(404).json({ message: 'Not found' });
   return res.json({ ticket });
 });
