@@ -128,6 +128,19 @@ export default function ReservePage() {
       <div className="mt-2 space-y-1 text-sm text-zinc-300">
         <p>공연일시 : 7/18(토) 18:00 / 입장 17:00</p>
         <p>티켓가격 : 인당 5,000원</p>
+        <p>공연장 : 상수 플렉스3호점</p>
+        <p>
+          위치 : 서울 마포구 독막로 68 지층 (
+          <a
+            className="text-sky-300 underline underline-offset-2"
+            href="https://naver.me/GDa2bD1x"
+            target="_blank"
+            rel="noreferrer"
+          >
+            네이버지도
+          </a>
+          )
+        </p>
       </div>
       <p className="mt-3 text-sm text-zinc-400">사전 예매 후 예매 번호로 빠른 입장을 도와드립니다.</p>
 

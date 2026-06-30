@@ -15,6 +15,7 @@ export default function ReserveSuccessPage() {
   const loc = useLocation()
   const ticket = (loc.state as { ticket?: Ticket } | null)?.ticket
 
+  const [showPaymentNotice, setShowPaymentNotice] = useState(Boolean(ticket))
   const [refundOpen, setRefundOpen] = useState(false)
   const [refundForm, setRefundForm] = useState({ accountHolder: '', bankName: '', accountNumber: '' })
   const [refundMessage, setRefundMessage] = useState<string | null>(null)
@@ -103,6 +104,20 @@ export default function ReserveSuccessPage() {
       <div className="mt-6 text-xs text-zinc-500">
         예매 완료 화면을 놓쳤다면 <Link className="ui-link" to="/reserve/lookup">예매번호로 조회</Link> 할 수 있어요.
       </div>
+
+      {showPaymentNotice && ticket ? (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-black/70 p-5">
+          <div className="ui-card w-full max-w-md p-5">
+            <div className="text-base font-semibold text-zinc-50">입금 안내</div>
+            <div className="mt-3 text-sm leading-6 text-zinc-200">
+              입금 완료까지 확인되어야 티켓이 '입금완료'티켓으로 변경되며 입장용 티켓으로 인정받으실 수 있습니다. 예약후 1시간 이내 입금을 완료해주세요!
+            </div>
+            <button className="ui-btn-primary mt-4 w-full" onClick={() => setShowPaymentNotice(false)}>
+              확인
+            </button>
+          </div>
+        </div>
+      ) : null}
     </div>
   )
 }
