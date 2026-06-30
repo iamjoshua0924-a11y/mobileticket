@@ -187,7 +187,10 @@ export default function ReservePage() {
         <button type="submit" disabled={loading} className="ui-btn-primary w-full">
           {loading ? '예매 처리 중…' : '예매하기'}
         </button>
-        <Link to="/reserve/lookup" className="ui-btn-ghost w-full">
+        <Link
+          to="/reserve/lookup"
+          className="ui-btn-ghost w-full border-sky-400/30 bg-sky-500/10 text-sky-100 hover:bg-sky-500/15"
+        >
           예매확인
         </Link>
       </form>
@@ -256,11 +259,6 @@ export default function ReservePage() {
         </div>
       ) : null}
 
-      <div className="mt-8 flex flex-col gap-2 text-xs text-zinc-500">
-        <div>
-          예매번호로 다시 확인: <Link className="ui-link" to="/reserve/lookup">/reserve/lookup</Link>
-        </div>
-      </div>
     </div>
   )
 }
