@@ -90,7 +90,7 @@ export async function fetchSettlement(staffSecret: string) {
 
 export async function createOnsiteTicket(
   staffSecret: string,
-  payload: { name: string; headcount: number }
+  payload: { name: string; headcount: number; refCode?: 'k' | 'b' | '3' | 'n' | null }
 ): Promise<Ticket> {
   const res = await fetch('/api/tickets/onsite', {
     method: 'POST',

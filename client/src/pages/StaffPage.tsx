@@ -40,6 +40,14 @@ function refLabel(refCode?: Ticket['refCode']) {
   return 'ref:없음'
 }
 
+const REF_OPTIONS: Array<{ value: 'k' | 'b' | '3' | 'n' | ''; label: string }> = [
+  { value: '', label: '응원팀 선택' },
+  { value: 'k', label: 'k' },
+  { value: 'b', label: 'b' },
+  { value: '3', label: '3' },
+  { value: 'n', label: 'n' }
+]
+
 function getStaffPermissions(secret: string | null): StaffPermissions {
   if (secret === '4231') {
     return {
@@ -108,7 +116,11 @@ export default function StaffPage() {
   const [restoreId, setRestoreId] = useState<string | null>(null)
   const [restorePreview, setRestorePreview] = useState<DeletedLog | null>(null)
   const [onsiteOpen, setOnsiteOpen] = useState(false)
-  const [onsiteForm, setOnsiteForm] = useState({ name: '', headcount: 1 })
+  const [onsiteForm, setOnsiteForm] = useState<{ name: string; headcount: number; refCode: 'k' | 'b' | '3' | 'n' | '' }>({
+    name: '',
+    headcount: 1,
+    refCode: ''
+  })
   const [settlement, setSettlement] = useState<{ totalHeadcount: number; revenue: number; referralCountsOrder?: number[] } | null>(null)
   const [showSettlement, setShowSettlement] = useState(false)
 
@@ -318,9 +330,12 @@ export default function StaffPage() {
     e.preventDefault()
     if (!staffSecret) return
     try {
-      const ticket = await createOnsiteTicket(staffSecret, onsiteForm)
+      const ticket = await createOnsiteTicket(staffSecret, {
+        ...onsiteForm,
+        refCode: onsiteForm.refCode || null
+      })
       setTickets((prev) => [ticket, ...prev])
-      setOnsiteForm({ name: '', headcount: 1 })
+      setOnsiteForm({ name: '', headcount: 1, refCode: '' })
       setOnsiteOpen(false)
     } catch (err) {
       setError(err instanceof Error ? err.message : '현장예매 입력 실패')
@@ -387,9 +402,16 @@ export default function StaffPage() {
       ) : null}
 
       {permissions.createOnsite && onsiteOpen ? (
-        <form onSubmit={onCreateOnsite} className="ui-card mt-4 grid gap-3 p-4 sm:grid-cols-[1fr_140px_120px]">
+        <form onSubmit={onCreateOnsite} className="ui-card mt-4 grid gap-3 p-4 sm:grid-cols-[1fr_140px_160px_120px]">
           <input className="ui-input" placeholder="예매자명" value={onsiteForm.name} onChange={(e) => setOnsiteForm((p) => ({ ...p, name: e.target.value }))} required />
           <input className="ui-input" type="number" min={1} placeholder="입장인원" value={onsiteForm.headcount} onChange={(e) => setOnsiteForm((p) => ({ ...p, headcount: Number(e.target.value) }))} required />
+          <select className="ui-input" value={onsiteForm.refCode} onChange={(e) => setOnsiteForm((p) => ({ ...p, refCode: e.target.value as 'k' | 'b' | '3' | 'n' | '' }))}>
+            {REF_OPTIONS.map((option) => (
+              <option key={option.value || 'none'} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
           <button className="ui-btn-primary" type="submit">확인</button>
         </form>
       ) : null}

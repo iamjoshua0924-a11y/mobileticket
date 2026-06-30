@@ -160,6 +160,8 @@ router.post('/', async (req, res) => {
 router.post('/onsite', staffAuth, requireStaffPermission('createOnsite'), async (req, res) => {
   const name = String(req.body?.name || '').trim();
   const headcount = Number(req.body?.headcount || 1);
+  const refCodeRaw = req.body?.refCode ?? null;
+  const refCode = ['k', 'b', '3', 'n'].includes(String(refCodeRaw)) ? String(refCodeRaw) : null;
   if (!name || !Number.isFinite(headcount) || headcount < 1) {
     return res.status(400).json({ message: 'Invalid payload' });
   }
@@ -175,6 +177,7 @@ router.post('/onsite', staffAuth, requireStaffPermission('createOnsite'), async 
     phoneLast4: '',
     depositorName: '현장예매',
     source: 'onsite',
+    refCode,
     isPaid: true,
     paidAt: new Date()
     ,
