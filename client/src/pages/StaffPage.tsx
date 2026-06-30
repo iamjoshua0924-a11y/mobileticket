@@ -14,6 +14,7 @@ import type { DeletedLog, PendingAction, Ticket } from '../lib/types'
 type StaffTab = 'tickets' | 'deleted' | 'refunds'
 type TicketFilter = 'all' | 'checkedin' | 'paid-unchecked'
 type RefFilter = 'all' | 'k' | 'b' | '3' | 'n' | 'none'
+type TicketSort = 'recent' | 'name-asc' | 'name-desc'
 
 function nowId() {
   return (globalThis.crypto?.randomUUID?.() || `id_${Date.now()}_${Math.random()}`).toString()
@@ -60,6 +61,7 @@ export default function StaffPage() {
   const [tab, setTab] = useState<StaffTab>('tickets')
   const [filter, setFilter] = useState<TicketFilter>('all')
   const [refFilter, setRefFilter] = useState<RefFilter>('all')
+  const [sort, setSort] = useState<TicketSort>('recent')
   const [q, setQ] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -156,9 +158,21 @@ export default function StaffPage() {
     }
 
     const term = q.trim()
-    if (!term) return list
-    return list.filter((t) => contains(`${t.bookingNo} ${t.name} ${t.phoneLast4} ${t.depositorName} ${t.refCode || ''}`, term))
-  }, [tickets, q, filter, refFilter])
+    if (term) {
+      list = list.filter((t) => contains(`${t.bookingNo} ${t.name} ${t.phoneLast4} ${t.depositorName} ${t.refCode || ''}`, term))
+    }
+
+    if (sort === 'name-asc') {
+      list.sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), 'ko'))
+    } else if (sort === 'name-desc') {
+      list.sort((a, b) => String(b.name || '').localeCompare(String(a.name || ''), 'ko'))
+    } else {
+      // 기본: 최신순(서버에서 createdAt desc로 내려오지만, 안전하게 한번 더 정렬)
+      list.sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')))
+    }
+
+    return list
+  }, [tickets, q, filter, refFilter, sort])
 
   const refundTickets = useMemo(() => tickets.filter((t) => t.refundRequest), [tickets])
 
@@ -334,6 +348,16 @@ export default function StaffPage() {
             <button className={filter === 'all' ? 'ui-btn-primary px-3 py-2 text-xs' : 'ui-btn-ghost px-3 py-2 text-xs'} onClick={() => setFilter('all')}>전체</button>
             <button className={filter === 'checkedin' ? 'ui-btn-primary px-3 py-2 text-xs' : 'ui-btn-ghost px-3 py-2 text-xs'} onClick={() => setFilter('checkedin')}>입장인원만 모아보기</button>
             <button className={filter === 'paid-unchecked' ? 'ui-btn-primary px-3 py-2 text-xs' : 'ui-btn-ghost px-3 py-2 text-xs'} onClick={() => setFilter('paid-unchecked')}>입금후 미입장 모아보기</button>
+            <select
+              className="ui-input sm:max-w-[220px]"
+              value={sort}
+              onChange={(e) => setSort(e.target.value as TicketSort)}
+              aria-label="정렬 기준"
+            >
+              <option value="recent">정렬: 최신순</option>
+              <option value="name-asc">정렬: 이름 가나다순(오름차)</option>
+              <option value="name-desc">정렬: 이름 가나다순(내림차)</option>
+            </select>
           </div>
           <div className="mt-2 flex flex-wrap gap-2">
             <button className={refFilter === 'all' ? 'ui-btn-primary px-3 py-2 text-xs' : 'ui-btn-ghost px-3 py-2 text-xs'} onClick={() => setRefFilter('all')}>ref 전체</button>
