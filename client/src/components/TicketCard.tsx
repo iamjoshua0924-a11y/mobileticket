@@ -22,13 +22,13 @@ export default function TicketCard({ ticket }: { ticket: Ticket }) {
         />
       </div>
 
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div className="text-lg font-extrabold tracking-widest text-sky-300">Midsummer Splash!</div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-nowrap items-center gap-2 self-start sm:self-auto">
           {paid ? (
-            <div className="rounded-full bg-sky-500/15 px-2 py-1 text-xs font-semibold text-sky-200">입금 완료</div>
+            <div className="whitespace-nowrap rounded-full bg-sky-500/15 px-2 py-1 text-xs font-semibold text-sky-200">입금 완료</div>
           ) : null}
-          <div className="rounded-full border border-zinc-800 bg-zinc-900 px-2 py-1 text-xs text-zinc-300">{ticket.headcount}명</div>
+          <div className="whitespace-nowrap rounded-full border border-zinc-800 bg-zinc-900 px-2 py-1 text-xs text-zinc-300">{ticket.headcount}명</div>
         </div>
       </div>
 

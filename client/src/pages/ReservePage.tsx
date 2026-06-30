@@ -126,11 +126,11 @@ export default function ReservePage() {
 
       <h1 className="text-3xl font-extrabold tracking-tight text-sky-300">Midsummer Splash!</h1>
       <div className="mt-2 space-y-1 text-sm text-zinc-300">
-        <p>공연일시 : 7/18(토) 18:00 / 입장 17:00</p>
-        <p>티켓가격 : 인당 5,000원</p>
-        <p>공연장 : 상수 플렉스3호점</p>
+        <p>공연일시: 7/18(토) 18:00 / 입장 17:00</p>
+        <p>티켓가격: 인당 5,000원</p>
+        <p>공연장: 상수 플렉스3호점</p>
         <p>
-          위치 : 서울 마포구 독막로 68 지층 (
+          위치: 서울 마포구 독막로 68 지층 (
           <a
             className="text-sky-300 underline underline-offset-2"
             href="https://naver.me/GDa2bD1x"

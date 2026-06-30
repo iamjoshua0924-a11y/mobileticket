@@ -1,7 +1,7 @@
 const express = require('express');
 const Ticket = require('../models/Ticket');
 const DeletedTicket = require('../models/DeletedTicket');
-const { staffAuth } = require('../middleware/staffAuth');
+const { staffAuth, requireStaffPermission } = require('../middleware/staffAuth');
 const { makeBookingNo } = require('../utils/bookingNo');
 
 const router = express.Router();
@@ -157,7 +157,7 @@ router.post('/', async (req, res) => {
 });
 
 // 관객: 현장예매 입력(스태프)
-router.post('/onsite', staffAuth, async (req, res) => {
+router.post('/onsite', staffAuth, requireStaffPermission('createOnsite'), async (req, res) => {
   const name = String(req.body?.name || '').trim();
   const headcount = Number(req.body?.headcount || 1);
   if (!name || !Number.isFinite(headcount) || headcount < 1) {
@@ -249,11 +249,13 @@ router.post('/:id/refund-request', async (req, res) => {
 // 스태프/관리자: 전체 조회
 router.get('/', staffAuth, async (req, res) => {
   const tickets = await Ticket.find({}).sort({ createdAt: -1 }).lean();
-  const deletedLogs = await DeletedTicket.find({}).sort({ deletedAt: -1 }).lean();
+  const deletedLogs = req.staffAccess?.permissions?.viewDeleted
+    ? await DeletedTicket.find({}).sort({ deletedAt: -1 }).lean()
+    : [];
   return res.json({ tickets, deletedLogs, syncedAt: new Date().toISOString() });
 });
 
-router.get('/settlement', staffAuth, async (req, res) => {
+router.get('/settlement', staffAuth, requireStaffPermission('settlement'), async (req, res) => {
   const tickets = await Ticket.find({}).lean();
   const totalHeadcount = tickets
     .filter((t) => t.isPaid || t.source === 'onsite')
@@ -278,7 +280,7 @@ router.get('/settlement', staffAuth, async (req, res) => {
 });
 
 // 스태프/관리자: 삭제로그 복구
-router.post('/deleted/:id/restore', staffAuth, async (req, res) => {
+router.post('/deleted/:id/restore', staffAuth, requireStaffPermission('restoreDeleted'), async (req, res) => {
   const deletedLog = await DeletedTicket.findById(req.params.id);
   if (!deletedLog) return res.status(404).json({ message: 'Not found' });
 
@@ -296,7 +298,7 @@ router.post('/deleted/:id/restore', staffAuth, async (req, res) => {
   return res.json({ ticket: cleanSnapshot(restored) });
 });
 
-router.patch('/:id/refund-status', staffAuth, async (req, res) => {
+router.patch('/:id/refund-status', staffAuth, requireStaffPermission('refund'), async (req, res) => {
   const ticket = await Ticket.findById(req.params.id);
   if (!ticket) return res.status(404).json({ message: 'Not found' });
   if (!ticket.refundRequest) return res.status(400).json({ message: '환불신청 없음' });
@@ -314,7 +316,7 @@ router.patch('/:id/refund-status', staffAuth, async (req, res) => {
 });
 
 // 스태프/관리자: 입금 상태 변경
-router.patch('/:id/payment', staffAuth, async (req, res) => {
+router.patch('/:id/payment', staffAuth, requireStaffPermission('payment'), async (req, res) => {
   const ticket = await Ticket.findById(req.params.id);
   if (!ticket) return res.status(404).json({ message: 'Not found' });
 
@@ -326,7 +328,7 @@ router.patch('/:id/payment', staffAuth, async (req, res) => {
 });
 
 // 스태프/관리자: 입장 처리
-router.patch('/:id/checkin', staffAuth, async (req, res) => {
+router.patch('/:id/checkin', staffAuth, requireStaffPermission('checkin'), async (req, res) => {
   const ticket = await Ticket.findById(req.params.id);
   if (!ticket) return res.status(404).json({ message: 'Not found' });
 
@@ -338,7 +340,7 @@ router.patch('/:id/checkin', staffAuth, async (req, res) => {
 });
 
 // 스태프/관리자: 예약 삭제 -> 삭제로그로 이동
-router.delete('/:id', staffAuth, async (req, res) => {
+router.delete('/:id', staffAuth, requireStaffPermission('deleteTicket'), async (req, res) => {
   const ticket = await Ticket.findById(req.params.id);
   if (!ticket) return res.status(404).json({ message: 'Not found' });
 
@@ -354,7 +356,7 @@ router.delete('/:id', staffAuth, async (req, res) => {
 });
 
 // 스태프/관리자: CSV 내보내기
-router.get('/export.csv', staffAuth, async (req, res) => {
+router.get('/export.csv', staffAuth, requireStaffPermission('exportCsv'), async (req, res) => {
   const tickets = await Ticket.find({}).sort({ createdAt: 1 }).lean();
   const header = [
     'bookingNo',

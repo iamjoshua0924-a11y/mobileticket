@@ -15,6 +15,17 @@ type StaffTab = 'tickets' | 'deleted' | 'refunds'
 type TicketFilter = 'all' | 'checkedin' | 'paid-unchecked' | 'unpaid'
 type RefFilter = 'all' | 'k' | 'b' | '3' | 'n' | 'none'
 type TicketSort = 'recent' | 'name-asc' | 'name-desc'
+type StaffPermissions = {
+  createOnsite: boolean
+  checkin: boolean
+  payment: boolean
+  refund: boolean
+  deleteTicket: boolean
+  viewDeleted: boolean
+  restoreDeleted: boolean
+  exportCsv: boolean
+  settlement: boolean
+}
 
 function nowId() {
   return (globalThis.crypto?.randomUUID?.() || `id_${Date.now()}_${Math.random()}`).toString()
@@ -27,6 +38,34 @@ function contains(hay: string, needle: string) {
 function refLabel(refCode?: Ticket['refCode']) {
   if (refCode === 'k' || refCode === 'b' || refCode === '3' || refCode === 'n') return `ref:${refCode}`
   return 'ref:없음'
+}
+
+function getStaffPermissions(secret: string | null): StaffPermissions {
+  if (secret === '4231') {
+    return {
+      createOnsite: true,
+      checkin: true,
+      payment: false,
+      refund: false,
+      deleteTicket: false,
+      viewDeleted: false,
+      restoreDeleted: false,
+      exportCsv: false,
+      settlement: false
+    }
+  }
+
+  return {
+    createOnsite: true,
+    checkin: true,
+    payment: true,
+    refund: true,
+    deleteTicket: true,
+    viewDeleted: true,
+    restoreDeleted: true,
+    exportCsv: true,
+    settlement: true
+  }
 }
 
 function fmt(dt?: string | null) {
@@ -74,6 +113,7 @@ export default function StaffPage() {
   const [showSettlement, setShowSettlement] = useState(false)
 
   const flushingRef = useRef(false)
+  const permissions = useMemo(() => getStaffPermissions(staffSecret), [staffSecret])
 
   useEffect(() => {
     const cache = loadTicketCache()
@@ -107,7 +147,8 @@ export default function StaffPage() {
     flushingRef.current = true
     try {
       let next = [...pending]
-      for (const action of pending) {
+      const executable = pending.filter((action) => action.type === 'CHECKIN' || permissions.payment)
+      for (const action of executable) {
         try {
           const updated = await applyAction(staffSecret, action)
           setTickets((prev) => prev.map((t) => (t._id === updated._id ? updated : t)))
@@ -137,6 +178,17 @@ export default function StaffPage() {
     void refresh()
     void flushPending()
   }, [staffSecret])
+
+  useEffect(() => {
+    if (permissions.payment) return
+    setPending((prev) => prev.filter((action) => action.type !== 'PAYMENT'))
+  }, [permissions.payment])
+
+  useEffect(() => {
+    if ((tab === 'deleted' && !permissions.viewDeleted) || (tab === 'refunds' && !permissions.refund)) {
+      setTab('tickets')
+    }
+  }, [tab, permissions.viewDeleted, permissions.refund])
 
   const pendingByTicket = useMemo(() => {
     const map = new Map<string, PendingAction[]>()
@@ -314,11 +366,11 @@ export default function StaffPage() {
     <div className="mx-auto max-w-5xl px-5 py-8">
       <div className="flex flex-wrap items-center gap-2">
         <button className={tab === 'tickets' ? 'ui-btn-primary px-3 py-2 text-xs' : 'ui-btn-ghost px-3 py-2 text-xs'} onClick={() => setTab('tickets')}>예약목록</button>
-        <button className={tab === 'deleted' ? 'ui-btn-primary px-3 py-2 text-xs' : 'ui-btn-ghost px-3 py-2 text-xs'} onClick={() => setTab('deleted')}>삭제로그</button>
-        <button className={tab === 'refunds' ? 'ui-btn-primary px-3 py-2 text-xs' : 'ui-btn-ghost px-3 py-2 text-xs'} onClick={() => setTab('refunds')}>환불내역</button>
-        <button className="ui-btn-ghost px-3 py-2 text-xs" onClick={() => setOnsiteOpen((v) => !v)}>현장예매 입력</button>
-        <button className="ui-btn-ghost px-3 py-2 text-xs" onClick={() => void onDownloadCsv()}>CSV 다운로드</button>
-        <button className="ui-btn-ghost px-3 py-2 text-xs" onClick={() => void onSettlement()}>정산하기</button>
+        {permissions.viewDeleted ? <button className={tab === 'deleted' ? 'ui-btn-primary px-3 py-2 text-xs' : 'ui-btn-ghost px-3 py-2 text-xs'} onClick={() => setTab('deleted')}>삭제로그</button> : null}
+        {permissions.refund ? <button className={tab === 'refunds' ? 'ui-btn-primary px-3 py-2 text-xs' : 'ui-btn-ghost px-3 py-2 text-xs'} onClick={() => setTab('refunds')}>환불내역</button> : null}
+        {permissions.createOnsite ? <button className="ui-btn-ghost px-3 py-2 text-xs" onClick={() => setOnsiteOpen((v) => !v)}>현장예매 입력</button> : null}
+        {permissions.exportCsv ? <button className="ui-btn-ghost px-3 py-2 text-xs" onClick={() => void onDownloadCsv()}>CSV 다운로드</button> : null}
+        {permissions.settlement ? <button className="ui-btn-ghost px-3 py-2 text-xs" onClick={() => void onSettlement()}>정산하기</button> : null}
         <button className="ui-btn-primary px-3 py-2 text-xs" onClick={() => void refresh()}>{loading ? '불러오는 중…' : '새로고침'}</button>
       </div>
 
@@ -334,7 +386,7 @@ export default function StaffPage() {
         </div>
       ) : null}
 
-      {onsiteOpen ? (
+      {permissions.createOnsite && onsiteOpen ? (
         <form onSubmit={onCreateOnsite} className="ui-card mt-4 grid gap-3 p-4 sm:grid-cols-[1fr_140px_120px]">
           <input className="ui-input" placeholder="예매자명" value={onsiteForm.name} onChange={(e) => setOnsiteForm((p) => ({ ...p, name: e.target.value }))} required />
           <input className="ui-input" type="number" min={1} placeholder="입장인원" value={onsiteForm.headcount} onChange={(e) => setOnsiteForm((p) => ({ ...p, headcount: Number(e.target.value) }))} required />
@@ -432,9 +484,9 @@ export default function StaffPage() {
                     </div>
 
                     <div className="flex shrink-0 flex-wrap gap-2">
-                      <button disabled={isPending || isDeleting} className="ui-btn-ghost px-3 py-2 text-xs" style={isPending || isDeleting ? { opacity: 0.55 } : undefined} onClick={() => void enqueueAndTry({ id: nowId(), type: 'PAYMENT', ticketId: t._id, payload: { isPaid: !t.isPaid }, createdAt: Date.now(), tryCount: 0 }, (x) => ({ ...x, isPaid: !x.isPaid }))}>입금 토글</button>
-                      <button disabled={isPending || isDeleting} className="ui-btn-primary px-3 py-2 text-xs" style={isPending || isDeleting ? { opacity: 0.55 } : undefined} onClick={() => void enqueueAndTry({ id: nowId(), type: 'CHECKIN', ticketId: t._id, payload: { isCheckedIn: !t.isCheckedIn }, createdAt: Date.now(), tryCount: 0 }, (x) => ({ ...x, isCheckedIn: !x.isCheckedIn }))}>입장 토글</button>
-                      <button disabled={isPending || isDeleting} className="ui-btn-ghost border-rose-500/20 bg-rose-500/10 px-3 py-2 text-xs text-rose-200 hover:bg-rose-500/15" style={isPending || isDeleting ? { opacity: 0.55 } : undefined} onClick={() => void onDeleteTicket(t._id, t.name)}>{isDeleting ? '삭제 중…' : '예약 삭제'}</button>
+                      {permissions.payment ? <button disabled={isPending || isDeleting} className="ui-btn-ghost px-3 py-2 text-xs" style={isPending || isDeleting ? { opacity: 0.55 } : undefined} onClick={() => void enqueueAndTry({ id: nowId(), type: 'PAYMENT', ticketId: t._id, payload: { isPaid: !t.isPaid }, createdAt: Date.now(), tryCount: 0 }, (x) => ({ ...x, isPaid: !x.isPaid }))}>입금 토글</button> : null}
+                      {permissions.checkin ? <button disabled={isPending || isDeleting} className="ui-btn-primary px-3 py-2 text-xs whitespace-nowrap" style={isPending || isDeleting ? { opacity: 0.55 } : undefined} onClick={() => void enqueueAndTry({ id: nowId(), type: 'CHECKIN', ticketId: t._id, payload: { isCheckedIn: !t.isCheckedIn }, createdAt: Date.now(), tryCount: 0 }, (x) => ({ ...x, isCheckedIn: !x.isCheckedIn }))}>입장 토글</button> : null}
+                      {permissions.deleteTicket ? <button disabled={isPending || isDeleting} className="ui-btn-ghost border-rose-500/20 bg-rose-500/10 px-3 py-2 text-xs text-rose-200 hover:bg-rose-500/15" style={isPending || isDeleting ? { opacity: 0.55 } : undefined} onClick={() => void onDeleteTicket(t._id, t.name)}>{isDeleting ? '삭제 중…' : '예약 삭제'}</button> : null}
                     </div>
                   </div>
                 </div>
@@ -444,7 +496,7 @@ export default function StaffPage() {
         </>
       ) : null}
 
-      {tab === 'deleted' ? (
+      {permissions.viewDeleted && tab === 'deleted' ? (
         <div className="mt-4 space-y-2">
           {deletedLogs.map((log) => (
             <div key={log._id} className="ui-card p-4">
@@ -463,7 +515,7 @@ export default function StaffPage() {
         </div>
       ) : null}
 
-      {tab === 'refunds' ? (
+      {permissions.refund && tab === 'refunds' ? (
         <div className="mt-4 space-y-2">
           {refundTickets.map((t) => (
             <div key={t._id} className="ui-card p-4">
