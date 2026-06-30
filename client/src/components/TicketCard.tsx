@@ -53,7 +53,7 @@ export default function TicketCard({ ticket }: { ticket: Ticket }) {
       </div>
 
       <div className="mt-4 text-center text-xs leading-5 text-zinc-400">
-        <div>캡처해서 현장에 보여주세요</div>
+        <div>캡쳐화면은 인정되지 않습니다.</div>
         <div className="text-zinc-500">입금 확인된 티켓만 입장을 도와드립니다</div>
       </div>
     </div>
