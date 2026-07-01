@@ -11,6 +11,7 @@ const STAFF_ACCESS = {
       assignRef: false,
       viewDeleted: false,
       restoreDeleted: false,
+      purgeDeleted: false,
       exportCsv: false,
       settlement: true
     }
@@ -27,6 +28,7 @@ const STAFF_ACCESS = {
       assignRef: true,
       viewDeleted: true,
       restoreDeleted: true,
+      purgeDeleted: true,
       exportCsv: true,
       settlement: true
     }
@@ -55,6 +57,7 @@ function resolveStaffAccess(secret) {
         assignRef: true,
         viewDeleted: true,
         restoreDeleted: true,
+        purgeDeleted: true,
         exportCsv: true,
         settlement: true
       }

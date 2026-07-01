@@ -301,6 +301,15 @@ router.post('/deleted/:id/restore', staffAuth, requireStaffPermission('restoreDe
   return res.json({ ticket: cleanSnapshot(restored) });
 });
 
+// 관리자: 삭제로그 영구삭제
+router.delete('/deleted/:id', staffAuth, requireStaffPermission('purgeDeleted'), async (req, res) => {
+  const deletedLog = await DeletedTicket.findById(req.params.id);
+  if (!deletedLog) return res.status(404).json({ message: 'Not found' });
+
+  await deletedLog.deleteOne();
+  return res.json({ deletedId: req.params.id });
+});
+
 router.patch('/:id/refund-status', staffAuth, requireStaffPermission('refund'), async (req, res) => {
   const ticket = await Ticket.findById(req.params.id);
   if (!ticket) return res.status(404).json({ message: 'Not found' });

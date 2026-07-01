@@ -139,6 +139,15 @@ export async function restoreDeletedTicket(staffSecret: string, deletedLogId: st
   return data.ticket
 }
 
+export async function purgeDeletedTicket(staffSecret: string, deletedLogId: string): Promise<string> {
+  const res = await fetch(`/api/tickets/deleted/${deletedLogId}`, {
+    method: 'DELETE',
+    headers: { 'x-staff-secret': staffSecret }
+  })
+  const data = await unwrap<{ deletedId: string }>(res)
+  return data.deletedId
+}
+
 export async function updateRefundStatus(
   staffSecret: string,
   ticketId: string,

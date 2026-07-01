@@ -6,6 +6,7 @@ import {
   deleteTicket,
   fetchSettlement,
   fetchTickets,
+  purgeDeletedTicket,
   restoreDeletedTicket,
   updateRefundStatus
 } from '../lib/api'
@@ -25,6 +26,7 @@ type StaffPermissions = {
   assignRef: boolean
   viewDeleted: boolean
   restoreDeleted: boolean
+  purgeDeleted: boolean
   exportCsv: boolean
   settlement: boolean
 }
@@ -61,6 +63,7 @@ function getStaffPermissions(secret: string | null): StaffPermissions {
       assignRef: false,
       viewDeleted: false,
       restoreDeleted: false,
+      purgeDeleted: false,
       exportCsv: false,
       settlement: true
     }
@@ -75,6 +78,7 @@ function getStaffPermissions(secret: string | null): StaffPermissions {
     assignRef: true,
     viewDeleted: true,
     restoreDeleted: true,
+    purgeDeleted: true,
     exportCsv: true,
     settlement: true
   }
@@ -120,6 +124,7 @@ export default function StaffPage() {
   const [assigningRefId, setAssigningRefId] = useState<string | null>(null)
   const [refPickerTicketId, setRefPickerTicketId] = useState<string | null>(null)
   const [restoreId, setRestoreId] = useState<string | null>(null)
+  const [purgingDeletedId, setPurgingDeletedId] = useState<string | null>(null)
   const [restorePreview, setRestorePreview] = useState<DeletedLog | null>(null)
   const [onsiteOpen, setOnsiteOpen] = useState(false)
   const [onsiteForm, setOnsiteForm] = useState<{ name: string; headcount: number; refCode: 'k' | 'b' | '3' | 'n' | '' }>({
@@ -307,6 +312,21 @@ export default function StaffPage() {
       setError(err instanceof Error ? err.message : '복구 실패')
     } finally {
       setRestoreId(null)
+    }
+  }
+
+  async function onPurgeDeleted(logId: string, name: string) {
+    if (!staffSecret || !permissions.purgeDeleted) return
+    if (!window.confirm(`'${name}' 삭제로그를 영구삭제할까요? 이 작업은 되돌릴 수 없습니다.`)) return
+    setPurgingDeletedId(logId)
+    try {
+      await purgeDeletedTicket(staffSecret, logId)
+      setDeletedLogs((prev) => prev.filter((log) => log._id !== logId))
+      if (restorePreview?._id === logId) setRestorePreview(null)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '삭제로그 영구삭제 실패')
+    } finally {
+      setPurgingDeletedId(null)
     }
   }
 
@@ -575,9 +595,20 @@ export default function StaffPage() {
                   <div className="mt-1 text-xs text-zinc-400">{log.ticket.bookingNo} · {fmt(log.deletedAt)}</div>
                   <div className="mt-1 text-xs text-zinc-500">{log.ticket.headcount}명 / {log.ticket.depositorName}</div>
                 </div>
-                <button className="ui-btn-primary px-3 py-2 text-xs" onClick={() => setRestorePreview(log)}>
-                  복구
-                </button>
+                <div className="flex flex-wrap gap-2">
+                  <button className="ui-btn-primary px-3 py-2 text-xs" onClick={() => setRestorePreview(log)}>
+                    복구
+                  </button>
+                  {permissions.purgeDeleted ? (
+                    <button
+                      className="ui-btn-ghost border-rose-500/20 bg-rose-500/10 px-3 py-2 text-xs text-rose-200 hover:bg-rose-500/15"
+                      disabled={purgingDeletedId === log._id}
+                      onClick={() => void onPurgeDeleted(log._id, log.ticket.name)}
+                    >
+                      {purgingDeletedId === log._id ? '삭제 중…' : '영구삭제'}
+                    </button>
+                  ) : null}
+                </div>
               </div>
             </div>
           ))}
